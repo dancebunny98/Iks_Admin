@@ -11,11 +11,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- IksAdminApi comes from the `external/Iks_Admin` git submodule (github.com/Iksix/Iks_Admin),
-         not a checked-in DLL snapshot. That way the module always compiles against the exact
-         API of whatever core version the submodule is pinned to, instead of a binary that can
-         silently go stale (see: the VIPCore build/ folder issue we fixed earlier). -->
-    <ProjectReference Include="..\..\external\Iks_Admin\IksAdminApi\IksAdminApi.csproj" />
+    <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/
+         (не submodule, обычная папка вместе с /IksAdmin/ и /RequirmentsApi/). -->
+    <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj" />
   </ItemGroup>
 
 </Project>

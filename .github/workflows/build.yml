@@ -5,7 +5,9 @@ on:
     branches: [ main ]
     paths:
       - 'modules/**'
-      - 'external/**'
+      - 'IksAdmin/**'
+      - 'IksAdminApi/**'
+      - 'RequirmentsApi/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches: [ main ]
@@ -56,10 +58,17 @@ jobs:
           - IksAdmin_OnlineAdmins
     steps:
       - uses: actions/checkout@v5
-        with:
-          # IksAdminApi lives in the external/Iks_Admin submodule (github.com/Iksix/Iks_Admin) -
-          # every module project-references it, so it has to be checked out here too.
-          submodules: recursive
+
+      - name: Sanity check - IksAdminApi present
+        run: |
+          PROJ="IksAdminApi/IksAdminApi.csproj"
+          if [ ! -f "$PROJ" ]; then
+            echo "::error::$PROJ not found at repo root. Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi, /modules"
+            echo "--- repo root listing ---"
+            ls -la
+            exit 1
+          fi
+          echo "Found $PROJ ✔"
 
       - uses: actions/setup-dotnet@v6
         with:
