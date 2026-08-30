@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.342" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IksAdminApi comes from the `external/Iks_Admin` git submodule (github.com/Iksix/Iks_Admin),
+         not a checked-in DLL snapshot. That way the module always compiles against the exact
+         API of whatever core version the submodule is pinned to, instead of a binary that can
+         silently go stale (see: the VIPCore build/ folder issue we fixed earlier). -->
+    <ProjectReference Include="..\..\external\Iks_Admin\IksAdminApi\IksAdminApi.csproj" />
+  </ItemGroup>
+
+</Project>
