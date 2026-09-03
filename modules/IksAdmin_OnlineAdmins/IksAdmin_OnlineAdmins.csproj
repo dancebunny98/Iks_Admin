@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -7,8 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.310"/>
-    <ProjectReference Include="../../IksAdminApi/IksAdminApi.csproj"/>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.342" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/
+         (не submodule, обычная папка вместе с /IksAdmin/ и /RequirmentsApi/).
+         Private=false: IksAdminApi.dll на сервере лежит в shared/IksAdminApi/ - модуль
+         должен грузить именно её, а не свою копию, иначе это будут два разных типа
+         в разных AssemblyLoadContext и обращения к Api/AdminModule сломаются. -->
+    <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

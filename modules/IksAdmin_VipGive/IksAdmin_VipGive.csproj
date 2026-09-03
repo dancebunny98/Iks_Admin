@@ -11,13 +11,22 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/ -->
-    <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj" />
+    <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/
+         Private=false: на сервере она в shared/IksAdminApi/ - грузим оттуда. -->
+    <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj">
+      <Private>false</Private>
+    </ProjectReference>
     <!-- VipCoreApi - исходники интерфейса VIPCore (github.com/dancebunny98/cs2-VIPCorefork),
          скопированы сюда так же, как IksAdminApi: без submodule, обычной папкой в репозитории.
-         Нужен только для типа IVipCoreApi/GetPluginCapability - сам VIPCore.dll на сервере
-         подключается в рантайме через PluginCapability("vipcore:core"), не через эту сборку. -->
-    <ProjectReference Include="..\..\VipCoreApi\VipCoreApi.csproj" />
+         Нужен только для типа IVipCoreApi - сам VIPCore.dll на сервере подключается в
+         рантайме через PluginCapability("vipcore:core"), не через эту сборку.
+         Private=false ОБЯЗАТЕЛЕН: VipCoreApi.dll на сервере лежит в shared/VipCoreApi/,
+         и capability.Get() отдаёт объект, реализующий ИМЕННО тот IVipCoreApi, что из shared/.
+         Если модуль потащит свою копию VipCoreApi.dll - это будет другой CLR-тип, и
+         приведение к нему либо упадёт с ошибкой, либо .Get() будет некорректно работать. -->
+    <ProjectReference Include="..\..\VipCoreApi\VipCoreApi.csproj">
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
