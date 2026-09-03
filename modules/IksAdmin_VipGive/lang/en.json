@@ -1,0 +1,13 @@
+{
+    "MenuTitle.SelectPlayer": "Give VIP to who?",
+    "MenuTitle.SelectGroup": "Select VIP group",
+    "MenuTitle.SelectDuration": "For how long?",
+    "Menu.NoGroups": "No VIP groups configured in VIPCore",
+    "Menu.NoDurations": "No duration options configured for this module",
+    "Chat.VipCoreNotFound": "VIPCore plugin not found on this server",
+    "Chat.PlayerOffline": "Player disconnected, try again",
+    "Chat.ErrorPrefix": "Failed to give VIP",
+    "Chat.YouGaveVip": "You gave VIP",
+    "Chat.YouGotVip": "You were given VIP",
+    "Chat.PlayerGotVip": "got VIP group"
+}

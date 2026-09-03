@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.342" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/ -->
+    <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj" />
+    <!-- VipCoreApi - исходники интерфейса VIPCore (github.com/dancebunny98/cs2-VIPCorefork),
+         скопированы сюда так же, как IksAdminApi: без submodule, обычной папкой в репозитории.
+         Нужен только для типа IVipCoreApi/GetPluginCapability - сам VIPCore.dll на сервере
+         подключается в рантайме через PluginCapability("vipcore:core"), не через эту сборку. -->
+    <ProjectReference Include="..\..\VipCoreApi\VipCoreApi.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,13 @@
+{
+    "MenuTitle.SelectPlayer": "Кому выдать VIP?",
+    "MenuTitle.SelectGroup": "Выберите группу VIP",
+    "MenuTitle.SelectDuration": "На какой срок?",
+    "Menu.NoGroups": "В VIPCore не настроено ни одной группы",
+    "Menu.NoDurations": "В конфиге модуля нет вариантов длительности",
+    "Chat.VipCoreNotFound": "Плагин VIPCore не найден на сервере",
+    "Chat.PlayerOffline": "Игрок отключился, попробуйте снова",
+    "Chat.ErrorPrefix": "Ошибка выдачи VIP",
+    "Chat.YouGaveVip": "Вы выдали VIP",
+    "Chat.YouGotVip": "Вам выдали VIP",
+    "Chat.PlayerGotVip": "получил VIP группу"
+}
