@@ -16,17 +16,20 @@
     <ProjectReference Include="..\..\IksAdminApi\IksAdminApi.csproj">
       <Private>false</Private>
     </ProjectReference>
-    <!-- VipCoreApi - исходники интерфейса VIPCore (github.com/dancebunny98/cs2-VIPCorefork),
-         скопированы сюда так же, как IksAdminApi: без submodule, обычной папкой в репозитории.
-         Нужен только для типа IVipCoreApi - сам VIPCore.dll на сервере подключается в
-         рантайме через PluginCapability("vipcore:core"), не через эту сборку.
-         Private=false ОБЯЗАТЕЛЕН: VipCoreApi.dll на сервере лежит в shared/VipCoreApi/,
-         и capability.Get() отдаёт объект, реализующий ИМЕННО тот IVipCoreApi, что из shared/.
-         Если модуль потащит свою копию VipCoreApi.dll - это будет другой CLR-тип, и
-         приведение к нему либо упадёт с ошибкой, либо .Get() будет некорректно работать. -->
-    <ProjectReference Include="..\..\VipCoreApi\VipCoreApi.csproj">
+    <!-- VipCoreApi.dll - бинарная зависимость от VIPCore (github.com/dancebunny98/cs2-VIPCorefork).
+         Не исходники в репозитории (как раньше), а один файл VipCoreApi.dll, положенный
+         вручную в RequirmentsApi/ - собран из VIPCore-фока (job "VipCoreApi" в его CI) или
+         просто скопирован с сервера из shared/VipCoreApi/VipCoreApi.dll.
+         Нужен только для типа IVipCoreApi на этапе компиляции - сам VIPCore.dll на сервере
+         подключается в рантайме через PluginCapability("vipcore:core"), не через эту сборку.
+         Private=false ОБЯЗАТЕЛЕН: на сервере VipCoreApi.dll лежит в shared/VipCoreApi/, и
+         capability.Get() отдаёт объект, реализующий ИМЕННО тот IVipCoreApi, что из shared/.
+         Если модуль потащит свою копию - это будет другой CLR-тип, и приведение к нему
+         либо упадёт с ошибкой, либо .Get() будет работать некорректно. -->
+    <Reference Include="VipCoreApi">
+      <HintPath>..\..\RequirmentsApi\VipCoreApi.dll</HintPath>
       <Private>false</Private>
-    </ProjectReference>
+    </Reference>
   </ItemGroup>
 
 </Project>

@@ -114,6 +114,19 @@ public interface IIksAdminApi
         string? hasNotPermissionsMessage = null,
         int minArgs = 0
     );
+    /// <summary>
+    /// Регистрирует дополнительный пункт в главном меню администратора (!admin), рядом
+    /// с встроенными "Управление серверами"/"Управление игроками"/"Управление блокировками".
+    /// Пункты сторонних модулей показываются после встроенных, в порядке регистрации.
+    /// Вызывать один раз, например в InitializeCommands() своего модуля.
+    /// </summary>
+    void RegisterMainMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
+        string viewFlags = "*");
+    /// <summary>
+    /// Пункты главного меню, зарегистрированные модулями через RegisterMainMenuOption.
+    /// Используется MenuMain при построении !admin - модулям обычно не нужен напрямую.
+    /// </summary>
+    IReadOnlyList<MainMenuOption> MainMenuOptions { get; }
     // DATABASE/PUNISHMENTS FUNC ===
     /// <summary>
     /// return statuses: 0 - banned, 1 - already banned, 2 - stopped by limitations, -1 - other

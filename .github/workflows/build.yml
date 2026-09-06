@@ -8,7 +8,6 @@ on:
       - 'IksAdmin/**'
       - 'IksAdminApi/**'
       - 'RequirmentsApi/**'
-      - 'VipCoreApi/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches: [ main ]
@@ -73,7 +72,7 @@ jobs:
       - name: Sanity check - required local projects present
         run: |
           MISSING=0
-          for PROJ in "IksAdminApi/IksAdminApi.csproj" "VipCoreApi/VipCoreApi.csproj"; do
+          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/VipCoreApi.dll"; do
             if [ ! -f "$PROJ" ]; then
               echo "::error::$PROJ not found at repo root."
               MISSING=1
@@ -82,7 +81,7 @@ jobs:
             fi
           done
           if [ "$MISSING" = "1" ]; then
-            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi, /VipCoreApi, /modules"
+            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. VipCoreApi.dll), /modules"
             echo "--- repo root listing ---"
             ls -la
             exit 1

@@ -86,6 +86,16 @@ public class Main : AdminModule, IPluginConfig<VipGiveConfig>
             onExecute: OnGiveVipCommand,
             whoCanExecute: CommandUsage.CLIENT_ONLY
         );
+
+        // Тот же флоу доступен и как пункт в главном меню !admin (не только через
+        // отдельную команду !givevip) - viewFlags те же, что и у самой команды,
+        // чтобы пункт видели только те, у кого есть право vip_manage.give.
+        Api.RegisterMainMenuOption(
+            id: "vip_give",
+            title: () => Localizer["MenuOption.GiveVip"],
+            onExecute: (caller, backMenu) => OpenSelectPlayerMenu(caller, backMenu),
+            viewFlags: AdminUtils.GetCurrentPermissionFlags(Permission)
+        );
     }
 
     private void OnGiveVipCommand(CCSPlayerController? caller, List<string> args, CommandInfo info)
@@ -101,8 +111,14 @@ public class Main : AdminModule, IPluginConfig<VipGiveConfig>
         OpenSelectPlayerMenu(caller);
     }
 
-    private void OpenSelectPlayerMenu(CCSPlayerController caller)
+    private void OpenSelectPlayerMenu(CCSPlayerController caller, IDynamicMenu? backMenu = null)
     {
+        if (_vipApi == null)
+        {
+            caller.Print($" {ChatColors.Red}{Localizer["Chat.VipCoreNotFound"]}");
+            return;
+        }
+
         MenuUtils.OpenSelectPlayer(caller, "givevip", (target, playerMenu) =>
         {
             if (target.Controller == null)
@@ -112,7 +128,7 @@ public class Main : AdminModule, IPluginConfig<VipGiveConfig>
             }
 
             OpenSelectGroupMenu(caller, target, playerMenu);
-        }, includeBots: false, customTitle: Localizer["MenuTitle.SelectPlayer"]);
+        }, includeBots: false, backMenu: backMenu, customTitle: Localizer["MenuTitle.SelectPlayer"]);
     }
 
     private void OpenSelectGroupMenu(CCSPlayerController caller, PlayerInfo target, IDynamicMenu playerMenu)

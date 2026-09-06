@@ -526,6 +526,15 @@ public class AdminApi : IIksAdminApi
         return AllServers.FirstOrDefault(x => x.Ip == ip);
     }
     
+    private readonly List<MainMenuOption> _mainMenuOptions = new();
+    public IReadOnlyList<MainMenuOption> MainMenuOptions => _mainMenuOptions;
+
+    public void RegisterMainMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
+        string viewFlags = "*")
+    {
+        _mainMenuOptions.Add(new MainMenuOption(id, title, onExecute, viewFlags));
+    }
+
     public void AddNewCommand(
         string command,
         string description,
@@ -933,7 +942,7 @@ public class AdminApi : IIksAdminApi
             });
         }
         Plugin.AddTimer(Config.AdvancedKickTime, () => {
-            if (player != null!)
+            if (player != null! && player.IsValid)
             {
                 player.ClearHtmlMessage();
 

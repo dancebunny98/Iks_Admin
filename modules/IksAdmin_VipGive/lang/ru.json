@@ -1,4 +1,5 @@
 {
+    "MenuOption.GiveVip": "Выдать VIP",
     "MenuTitle.SelectPlayer": "Кому выдать VIP?",
     "MenuTitle.SelectGroup": "Выберите группу VIP",
     "MenuTitle.SelectDuration": "На какой срок?",

@@ -841,10 +841,20 @@ public class Main : BasePlugin
     public HookResult OnPlayerDisconnect(EventPlayerDisconnect @event, GameEventInfo info)
     {
         var player = @event.Userid;
-        BlockTeamChange.Remove(player!);
-        PlayersUtils.ClearHtmlMessage(player!);
-        MenuPM.OnRoundEndChangeTeam.Remove(player!.Slot);
-        if (player == null || player.IsBot || player.AuthorizedSteamID == null) return HookResult.Continue;
+        // ВАЖНО: проверка на null должна быть ПЕРВОЙ. Раньше здесь сначала шли
+        // BlockTeamChange.Remove(player!) / player!.Slot и т.д. (player! только гасит
+        // предупреждение компилятора, не является реальной проверкой), а null-check
+        // был уже ПОСЛЕ разыменования - если @event.Userid оказывался null (что вполне
+        // реально сразу после форсированного kick, когда сущность игрока уже частично
+        // разрушена), player!.Slot кидал NullReferenceException прямо в Pre-хуке
+        // нативного события - необработанное исключение на границе native/managed
+        // в этой точке способно уронить весь процесс сервера, а не просто залогироваться.
+        if (player == null) return HookResult.Continue;
+
+        BlockTeamChange.Remove(player);
+        PlayersUtils.ClearHtmlMessage(player);
+        MenuPM.OnRoundEndChangeTeam.Remove(player.Slot);
+        if (player.IsBot || player.AuthorizedSteamID == null) return HookResult.Continue;
         AdminApi.DisconnectedPlayers.Insert(0, new PlayerInfo(player));
         KickOnFullConnect.Remove(player.GetSteamId());
         LastClientVoicesTime.Remove(player.GetSteamId());

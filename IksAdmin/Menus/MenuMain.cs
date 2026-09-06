@@ -43,6 +43,17 @@ public static class MenuMain
             },
             viewFlags: AdminUtils.GetAllPermissionGroupFlags("blocks_manage") + AdminUtils.GetAllPermissionGroupFlags("comms_manage")
         );
+        // Пункты, добавленные сторонними модулями через Api.RegisterMainMenuOption
+        // (например IksAdmin_VipGive) - показываются после встроенных, в порядке регистрации.
+        foreach (var option in _api.MainMenuOptions)
+        {
+            menu.AddMenuOption(
+                id: option.Id,
+                title: option.Title(),
+                (p, _) => option.OnExecute(caller, menu),
+                viewFlags: option.ViewFlags
+            );
+        }
         menu.Open(caller);
     }
 
