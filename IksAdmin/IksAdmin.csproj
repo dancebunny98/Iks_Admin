@@ -5,7 +5,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
@@ -18,40 +17,5 @@
     <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.342"/>
     <Reference Include="../RequirmentsApi/MenuManagerApi.dll"/>
   </ItemGroup>
-
-  <!-- Таргет ExportDllsAfterBuild удалён, так как вся логика копирования выполняется в GitHub Actions workflow.
-       Все DLL и PDB копируются из папки bin/Release/net8.0 в шаге "Collect core output". -->
-
-    <ItemGroup>
-      <SharedDlls Include="$(OutputPath)\IksAdminApi.dll"/>
-      <SharedDlls Include="$(OutputPath)\IksAdminApi.pdb"/>
-    </ItemGroup>
-
-    <ItemGroup>
-      <LanguageFiles Include="$(MSBuildProjectDirectory)\lang\**\*"/>
-      <ConfigFiles Include="$(MSBuildProjectDirectory)\configs\**\*"/>
-      <SortMenuConfigFile Include="$(MSBuildProjectDirectory)\sortmenus.json"/>
-    </ItemGroup>
-
-    <MakeDir Directories="$(OutputPath)\bundle"/>
-    <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)"/>
-    <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang"/>
-    <MakeDir Directories="$(OutputPath)\bundle\shared\IksAdminApi"/>
-    <MakeDir Directories="$(OutputPath)\bundle\configs\plugins\$(MSBuildProjectName)"/>
-
-    <Copy SourceFiles="@(SelectedDlls)" DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" SkipUnchangedFiles="true"/>
-    <Copy SourceFiles="@(SharedDlls)" DestinationFolder="$(OutputPath)\bundle\shared\IksAdminApi" SkipUnchangedFiles="true"/>
-    <Copy SourceFiles="@(LanguageFiles)"
-          DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang\%(RecursiveDir)"
-          SkipUnchangedFiles="true"/>
-    <Copy SourceFiles="@(ConfigFiles)"
-          DestinationFolder="$(OutputPath)\bundle\configs\plugins\$(MSBuildProjectName)\%(RecursiveDir)"
-          SkipUnchangedFiles="true"/>
-    <Copy SourceFiles="@(SortMenuConfigFile)"
-          DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)"
-          SkipUnchangedFiles="true"/>
-
-  </Target>
-
 
 </Project>
