@@ -17,8 +17,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
-  # Список общих DLL-контрактов, которые не должны лежать в папках модулей,
-  # но для IksAdmin мы не удаляем ничего (оставляем все зависимости).
+  # Список общих DLL-контрактов, которые не должны лежать в папках плагинов (для модулей)
   SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
 
 jobs:
@@ -61,11 +60,13 @@ jobs:
         run: |
           set -e
 
-          # --- IksAdmin (plugin) : копируем ВСЕ DLL и PDB, ничего не удаляем ---
+          # --- IksAdmin (plugin) : копируем все DLL и PDB из папки сборки ---
           PLUGIN_OUT="out/addons/counterstrikesharp/plugins/IksAdmin"
           mkdir -p "$PLUGIN_OUT"
           BIN_IKSA="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0"
           find "$BIN_IKSA" -maxdepth 1 \( -name "*.dll" -o -name "*.pdb" \) -exec cp {} "$PLUGIN_OUT"/ \;
+
+          # Не удаляем IksAdminApi.dll/pdb – они остаются в папке плагина
 
           # Копируем переводы, если есть
           if [ -d "IksAdmin/lang" ]; then
@@ -73,7 +74,35 @@ jobs:
             cp IksAdmin/lang/*.json "$PLUGIN_OUT/lang"/ 2>/dev/null || true
           fi
 
-          # --- IksAdminApi (shared) - копируем отдельно в shared ---
+          # --- Создаём sortmenus.json в папке плагина ---
+          cat > "$PLUGIN_OUT/sortmenus.json" << 'EOF'
+{
+    "iksadmin:menu:testmenu" : [
+        {
+            "Id" : "iksadmin:option:1",
+            "ViewFlags" : "not override",
+            "View" : true
+        },
+        {
+            "Id" : "iksadmin:option:3",
+            "ViewFlags" : "not override",
+            "View" : true
+        }
+    ],
+    "iksadmin:menu:main" : [
+        {
+            "Id" : "iksadmin:option:sm",
+            "View" : true
+        },
+        {
+            "Id" : "iksadmin:option:bm",
+            "View" : true
+        }
+    ]
+}
+EOF
+
+          # --- IksAdminApi (shared) тоже копируем (дублируем) ---
           SHARED_API="out/addons/counterstrikesharp/shared/IksAdminApi"
           mkdir -p "$SHARED_API"
           BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
