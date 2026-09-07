@@ -17,7 +17,8 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
-  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
+  # Общие DLL-контракты и зависимости, которые не должны копироваться внутрь плагинов
+  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll SteamWebAPI2.dll Steam.Models.dll"
 
 jobs:
   no-tracked-build-output:
@@ -59,7 +60,7 @@ jobs:
         run: |
           set -e
 
-          # --- IksAdmin (plugin) : только сам плагин и переводы ---
+          # --- IksAdmin (plugin) : только сам плагин, PDB и переводы ---
           PLUGIN_OUT="out/addons/counterstrikesharp/plugins/IksAdmin"
           mkdir -p "$PLUGIN_OUT"
           BIN_IKSA="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0"
@@ -71,11 +72,17 @@ jobs:
           fi
 
           # --- IksAdminApi (shared) ---
-          SHARED_OUT="out/addons/counterstrikesharp/shared/IksAdminApi"
-          mkdir -p "$SHARED_OUT"
+          SHARED_API="out/addons/counterstrikesharp/shared/IksAdminApi"
+          mkdir -p "$SHARED_API"
           BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
-          cp "$BIN_API/IksAdminApi.dll" "$SHARED_OUT/"
-          [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" "$SHARED_OUT/"
+          cp "$BIN_API/IksAdminApi.dll" "$SHARED_API/"
+          [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" "$SHARED_API/"
+
+          # --- SteamWebAPI2 и Steam.Models (общие зависимости) ---
+          SHARED_STEAM="out/addons/counterstrikesharp/shared/SteamWebAPI2"
+          mkdir -p "$SHARED_STEAM"
+          cp "$BIN_IKSA/SteamWebAPI2.dll" "$SHARED_STEAM/"
+          [ -f "$BIN_IKSA/Steam.Models.dll" ] && cp "$BIN_IKSA/Steam.Models.dll" "$SHARED_STEAM/"
 
           echo "Core artefacts collected:"
           find out -type f
@@ -158,11 +165,13 @@ jobs:
           find "$BIN" -maxdepth 1 -name "*.dll" -exec cp {} "$OUT"/ \;
           find "$BIN" -maxdepth 1 -name "*.pdb" -exec cp {} "$OUT"/ \;
 
+          # Удаляем общие DLL, которые должны быть в shared/
           for dep in $SHARED_DLLS; do
             f="$OUT/$dep"
             [ -f "$f" ] && { echo "Removing bundled $dep - must come from shared/ instead"; rm -f "$f"; }
           done
 
+          # Копируем переводы модуля, если есть
           if [ -d "$PROJDIR/lang" ]; then
             mkdir -p "$OUT/lang"
             cp "$PROJDIR"/lang/*.json "$OUT/lang"/ 2>/dev/null || true
