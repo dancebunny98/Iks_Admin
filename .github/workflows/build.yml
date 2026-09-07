@@ -52,6 +52,80 @@ jobs:
           echo "No committed build/ output files found (README.md inside build/ is allowed)."
 
   # ---------------------------------------------------------------
+  # Core: IksAdmin (plugin) + IksAdminApi (shared library)
+  # ---------------------------------------------------------------
+  build-core:
+    name: Build IksAdmin + IksAdminApi
+    runs-on: ubuntu-latest
+    needs: no-tracked-build-output
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore & build core projects
+        id: core_build
+        run: |
+          set -e
+          # Собираем API-библиотеку
+          dotnet restore IksAdminApi/IksAdminApi.csproj
+          dotnet build IksAdminApi/IksAdminApi.csproj -c ${{ env.CONFIGURATION }} --no-restore
+
+          # Собираем основной плагин (он ссылается на IksAdminApi через ProjectReference)
+          dotnet restore IksAdmin/IksAdmin.csproj
+          dotnet build IksAdmin/IksAdmin.csproj -c ${{ env.CONFIGURATION }} --no-restore
+
+      - name: Collect core output
+        if: steps.core_build.outcome == 'success'
+        run: |
+          set -e
+
+          # --- IksAdmin (plugin) ---
+          PLUGIN_OUT="out/addons/counterstrikesharp/plugins/IksAdmin"
+          mkdir -p "$PLUGIN_OUT"
+
+          # Копируем всё из папки сборки IksAdmin
+          BIN_IKSA="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0"
+          find "$BIN_IKSA" -maxdepth 1 \( -name "*.dll" -o -name "*.pdb" \) -exec cp {} "$PLUGIN_OUT"/ \;
+
+          # Удаляем shared-контракты (они должны приходить из shared/ на сервере)
+          for dep in $SHARED_DLLS; do
+            f="$PLUGIN_OUT/$dep"
+            [ -f "$f" ] && { echo "Removing $dep from plugin folder"; rm -f "$f"; }
+          done
+
+          # Копируем переводы, если есть
+          if [ -d "IksAdmin/lang" ]; then
+            mkdir -p "$PLUGIN_OUT/lang"
+            cp IksAdmin/lang/*.json "$PLUGIN_OUT/lang"/ 2>/dev/null || true
+          fi
+
+          # --- IksAdminApi (shared) ---
+          SHARED_OUT="out/addons/counterstrikesharp/shared/IksAdminApi"
+          mkdir -p "$SHARED_OUT"
+
+          BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
+          # Копируем только саму API-библиотеку и её .pdb (другие зависимости не нужны)
+          cp "$BIN_API/IksAdminApi.dll" "$SHARED_OUT/"
+          [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" "$SHARED_OUT/"
+
+          echo "Core artefacts collected:"
+          find out -type f
+
+      - name: Report core failure
+        if: steps.core_build.outcome == 'failure'
+        run: echo "::warning::IksAdmin or IksAdminApi failed to build - see step log above"
+
+      - uses: actions/upload-artifact@v6
+        if: steps.core_build.outcome == 'success'
+        with:
+          name: IksAdminCore-${{ github.sha }}
+          path: out/
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------
   # 1) Every module under modules/, built and packaged INDIVIDUALLY.
   #    One module failing does NOT stop the others.
   #    Add new modules to this list as you add folders under modules/.
