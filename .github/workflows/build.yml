@@ -17,7 +17,9 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
-  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll SteamWebAPI2.dll Steam.Models.dll"
+  # Список общих DLL-контрактов, которые не должны лежать в папках модулей,
+  # но для IksAdmin мы не удаляем ничего (оставляем все зависимости).
+  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
 
 jobs:
   no-tracked-build-output:
@@ -59,29 +61,24 @@ jobs:
         run: |
           set -e
 
-          # --- IksAdmin (plugin) : только сам плагин, PDB и переводы ---
+          # --- IksAdmin (plugin) : копируем ВСЕ DLL и PDB, ничего не удаляем ---
           PLUGIN_OUT="out/addons/counterstrikesharp/plugins/IksAdmin"
           mkdir -p "$PLUGIN_OUT"
           BIN_IKSA="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0"
-          cp "$BIN_IKSA/IksAdmin.dll" "$PLUGIN_OUT/"
-          cp "$BIN_IKSA/IksAdmin.pdb" "$PLUGIN_OUT/"
+          find "$BIN_IKSA" -maxdepth 1 \( -name "*.dll" -o -name "*.pdb" \) -exec cp {} "$PLUGIN_OUT"/ \;
+
+          # Копируем переводы, если есть
           if [ -d "IksAdmin/lang" ]; then
             mkdir -p "$PLUGIN_OUT/lang"
             cp IksAdmin/lang/*.json "$PLUGIN_OUT/lang"/ 2>/dev/null || true
           fi
 
-          # --- IksAdminApi (shared) ---
+          # --- IksAdminApi (shared) - копируем отдельно в shared ---
           SHARED_API="out/addons/counterstrikesharp/shared/IksAdminApi"
           mkdir -p "$SHARED_API"
           BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
           cp "$BIN_API/IksAdminApi.dll" "$SHARED_API/"
           [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" "$SHARED_API/"
-
-          # --- Общие зависимости: SteamWebAPI2 и Steam.Models кладём прямо в shared/ (корень) ---
-          SHARED_ROOT="out/addons/counterstrikesharp/shared"
-          mkdir -p "$SHARED_ROOT"
-          cp "$BIN_IKSA/SteamWebAPI2.dll" "$SHARED_ROOT/"
-          cp "$BIN_IKSA/Steam.Models.dll" "$SHARED_ROOT/"
 
           echo "Core artefacts collected:"
           find out -type f
@@ -113,7 +110,7 @@ jobs:
       - name: Sanity check - required local projects present
         run: |
           MISSING=0
-          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/VipCoreApi.dll"; do
+          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/MenuManagerApi.dll"; do
             if [ ! -f "$PROJ" ]; then
               echo "::error::$PROJ not found at repo root."
               MISSING=1
@@ -122,7 +119,7 @@ jobs:
             fi
           done
           if [ "$MISSING" = "1" ]; then
-            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. VipCoreApi.dll), /modules"
+            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. MenuManagerApi.dll), /modules"
             echo "--- repo root listing ---"
             ls -la
             exit 1
