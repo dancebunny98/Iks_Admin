@@ -18,4 +18,30 @@
     <Reference Include="../RequirmentsApi/MenuManagerApi.dll"/>
   </ItemGroup>
 
+  <!-- Таргет для создания чистого набора файлов плагина (только dll, pdb и lang) -->
+  <Target Name="ExportPluginFiles" AfterTargets="Build">
+    <!-- Определяем файлы, которые должны попасть в плагин -->
+    <ItemGroup>
+      <PluginFiles Include="$(TargetPath)" />
+      <PluginFiles Include="$(OutputPath)$(MSBuildProjectName).pdb" />
+    </ItemGroup>
+
+    <!-- Файлы переводов -->
+    <ItemGroup>
+      <LanguageFiles Include="$(MSBuildProjectDirectory)\lang\**\*" />
+    </ItemGroup>
+
+    <!-- Создаём папки -->
+    <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" />
+    <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang" />
+
+    <!-- Копируем только dll и pdb -->
+    <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" SkipUnchangedFiles="true" />
+
+    <!-- Копируем lang -->
+    <Copy SourceFiles="@(LanguageFiles)"
+          DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
