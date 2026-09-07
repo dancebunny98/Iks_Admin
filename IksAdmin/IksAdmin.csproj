@@ -11,30 +11,16 @@
 
   <ItemGroup>
     <PackageReference Include="CoreRcon" Version="5.4.2"/>
-    <PackageReference Include="dapper" Version="2.1.35"/>
-    <PackageReference Include="mysqlconnector" Version="2.3.7"/>
-    <PackageReference Include="SteamWebAPI2" Version="4.4.1"/>
+    <PackageReference Include="dapper" Version="2.1.79"/>
+    <PackageReference Include="mysqlconnector" Version="2.5.0"/>
+    <PackageReference Include="SteamWebAPI2" Version="5.0.0"/>
     <ProjectReference Include="..\IksAdminApi\IksAdminApi.csproj"/>
     <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.342"/>
     <Reference Include="../RequirmentsApi/MenuManagerApi.dll"/>
   </ItemGroup>
 
-  <Target Name="ExportDllsAfterBuild" AfterTargets="Build">
-    <ItemGroup>
-      <SelectedDlls Include="$(TargetPath)"/>
-      <SelectedDlls Include="$(OutputPath)\IksAdmin.pdb"/>
-      <SelectedDlls Include="$(OutputPath)\IksAdminApi.dll"/>
-      <SelectedDlls Include="$(OutputPath)\IksAdminApi.pdb"/>
-      <SelectedDlls Include="$(OutputPath)\AutoMapper.dll"/>
-      <SelectedDlls Include="$(OutputPath)\CoreRcon.dll"/>
-      <SelectedDlls Include="$(OutputPath)\Dapper.dll"/>
-      <SelectedDlls Include="$(OutputPath)\MenuManagerApi.dll"/>
-      <SelectedDlls Include="$(OutputPath)\MySqlConnector.dll"/>
-      <SelectedDlls Include="$(OutputPath)\Newtonsoft.Json.dll"/>
-      <SelectedDlls Include="$(OutputPath)\Steam.Models.dll"/>
-      <SelectedDlls Include="$(OutputPath)\SteamWebAPI2.dll"/>
-      <SelectedDlls Include="$(OutputPath)\System.IO.Pipelines.dll"/>
-    </ItemGroup>
+  <!-- Таргет ExportDllsAfterBuild удалён, так как вся логика копирования выполняется в GitHub Actions workflow.
+       Все DLL и PDB копируются из папки bin/Release/net8.0 в шаге "Collect core output". -->
 
     <ItemGroup>
       <SharedDlls Include="$(OutputPath)\IksAdminApi.dll"/>
