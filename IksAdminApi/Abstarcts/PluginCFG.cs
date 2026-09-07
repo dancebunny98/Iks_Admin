@@ -6,7 +6,7 @@ namespace IksAdminApi;
 
 public abstract class PluginCFG<IPluginCFG>
 {
-    public IPluginCFG ReadOrCreate<IPluginCFG>(string path, IPluginCFG defaultConfig)
+    public TConfig ReadOrCreate<TConfig>(string path, TConfig defaultConfig)
     {
         var filePath = path;
         var directoryPath = Path.GetDirectoryName(filePath);
@@ -23,7 +23,7 @@ public abstract class PluginCFG<IPluginCFG>
         using var streamReader = new StreamReader(filePath);
         var json = streamReader.ReadToEnd();
         AdminUtils.LogDebug("Deserialize config file for " + filePath);
-        var config = JsonSerializer.Deserialize<IPluginCFG>(json, options: new JsonSerializerOptions() { WriteIndented = true, AllowTrailingCommas = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.Cyrillic), ReadCommentHandling = JsonCommentHandling.Skip});
+        var config = JsonSerializer.Deserialize<TConfig>(json, options: new JsonSerializerOptions() { WriteIndented = true, AllowTrailingCommas = true, Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.Cyrillic), ReadCommentHandling = JsonCommentHandling.Skip});
         AdminUtils.LogDebug("Deserialized ✔");
         return config!;
     }

@@ -36,15 +36,15 @@ public class VipGiveConfig : BasePluginConfig
     // Список вариантов длительности в меню. Можно менять/добавлять/удалять как угодно.
     public List<VipDurationOption> Durations { get; set; } = new()
     {
-        new VipDurationOption { Label = "1 час", Hours = 1 },
-        new VipDurationOption { Label = "1 день", Hours = 24 },
-        new VipDurationOption { Label = "3 дня", Hours = 72 },
-        new VipDurationOption { Label = "7 дней", Hours = 168 },
-        new VipDurationOption { Label = "14 дней", Hours = 336 },
-        new VipDurationOption { Label = "30 дней", Hours = 720 },
-        new VipDurationOption { Label = "3 месяца", Hours = 2160 },
-        new VipDurationOption { Label = "6 месяцев", Hours = 4320 },
-        new VipDurationOption { Label = "Навсегда", Permanent = true },
+        new VipDurationOption { Label = "1 hour", Hours = 1 },
+        new VipDurationOption { Label = "1 day", Hours = 24 },
+        new VipDurationOption { Label = "3 days", Hours = 72 },
+        new VipDurationOption { Label = "7 days", Hours = 168 },
+        new VipDurationOption { Label = "14 days", Hours = 336 },
+        new VipDurationOption { Label = "30 days", Hours = 720 },
+        new VipDurationOption { Label = "3 months", Hours = 2160 },
+        new VipDurationOption { Label = "6 months", Hours = 4320 },
+        new VipDurationOption { Label = "Forever", Permanent = true },
     };
 }
 

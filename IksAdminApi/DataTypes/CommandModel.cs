@@ -14,6 +14,4 @@ public class CommandModel
     public CommandUsage CommandUsage;
     public required CommandDefinition Definition;
     public string? Tag;
-    string? NotEnoughPermissionsMessage;
-    int MinArgs;
 }

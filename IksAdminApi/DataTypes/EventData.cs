@@ -42,7 +42,7 @@ public class EventData
     /// <summary>
     /// Use that for add new data value
     /// </summary>
-    public void Insert<T>(string key, T value)
+    public void Insert<T>(string key, T value) where T : notnull
     {
         _data.Add(key, value);
     }
@@ -61,7 +61,7 @@ public class EventData
     /// <summary>
     /// Use that for settings exists data value
     /// </summary>
-    public void Set<T>(string key, T value)
+    public void Set<T>(string key, T value) where T : notnull
     {
         if (!_data.ContainsKey(key))
         {

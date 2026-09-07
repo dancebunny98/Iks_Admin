@@ -532,6 +532,12 @@ public class AdminApi : IIksAdminApi
     public void RegisterMainMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
         string viewFlags = "*")
     {
+        // Идемпотентно по id: список пунктов главного меню живёт в ЯДРЕ и не
+        // сбрасывается, когда перезагружается только модуль (css_plugins reload
+        // <module>, без рестарта всего сервера). Без этой замены повторный вызов
+        // InitializeCommands() модуля после reload добавлял бы дубликат пункта
+        // в !admin на каждый reload.
+        _mainMenuOptions.RemoveAll(o => o.Id == id);
         _mainMenuOptions.Add(new MainMenuOption(id, title, onExecute, viewFlags));
     }
 

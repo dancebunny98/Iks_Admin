@@ -1,0 +1,8 @@
+{
+    "MenuOption.ChangeMap": "Change Map",
+    "MenuTitle.SelectCategory": "Select category",
+    "MenuTitle.SelectMap": "Select map",
+    "Chat.NoMapsConfigured": "No maps configured in this module",
+    "Chat.ChangingMap": "Changing map to",
+    "Chat.PlayerChangedMap": "changed map to"
+}

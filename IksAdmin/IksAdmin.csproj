@@ -13,34 +13,68 @@
     <PackageReference Include="dapper" Version="2.1.79"/>
     <PackageReference Include="mysqlconnector" Version="2.5.0"/>
     <PackageReference Include="SteamWebAPI2" Version="5.0.0"/>
-    <ProjectReference Include="..\IksAdminApi\IksAdminApi.csproj"/>
     <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.342"/>
-    <Reference Include="../RequirmentsApi/MenuManagerApi.dll"/>
+
+    <!-- Private=false ОБЯЗАТЕЛЕН для обеих ссылок ниже: IksAdminApi.dll и MenuManagerApi.dll
+         на сервере лежат в shared/, и ядро ДОЛЖНО резолвить их оттуда же, откуда их резолвят
+         все модули (IksAdmin_OnlineAdmins, IksAdmin_VipGive и т.д.) - иначе ядро и модули
+         будут использовать два разных CLR-типа для одного и того же интерфейса
+         (IIksAdminApi/IDynamicMenu), и все capability-вызовы между ними сломаются.
+         Без Private=false MSBuild по умолчанию копирует эти DLL прямо в bin/ ядра, и они
+         в итоге оказываются в plugins/IksAdmin/ - ядро находит СВОЮ копию раньше, чем
+         shared/, и грузит не то. -->
+    <ProjectReference Include="..\IksAdminApi\IksAdminApi.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <Reference Include="MenuManagerApi">
+      <HintPath>..\RequirmentsApi\MenuManagerApi.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
-  <!-- Таргет для создания чистого набора файлов плагина (только dll, pdb и lang) -->
+  <!-- Таргет для сборки готового плагина: сама dll + приватные зависимости (Dapper,
+       MySqlConnector, CoreRcon, SteamWebAPI2 и их транзитивные зависимости) + lang +
+       configs + sortmenus.json. IksAdminApi.dll/pdb и MenuManagerApi.dll сюда не попадают
+       вообще (Private=false выше не даёт им оказаться в $(OutputPath)) - Exclude ниже это
+       просто явно документирует и подстраховывает.
+       Список зависимостей через *.dll/*.pdb, а не поимённо - чтобы не протухать при
+       обновлении версий пакетов (транзитивные зависимости могут меняться). -->
   <Target Name="ExportPluginFiles" AfterTargets="Build">
-    <!-- Определяем файлы, которые должны попасть в плагин -->
     <ItemGroup>
-      <PluginFiles Include="$(TargetPath)" />
-      <PluginFiles Include="$(OutputPath)$(MSBuildProjectName).pdb" />
+      <PluginFiles Include="$(OutputPath)*.dll" Exclude="$(OutputPath)IksAdminApi.dll;$(OutputPath)MenuManagerApi.dll" />
+      <PluginFiles Include="$(OutputPath)*.pdb" Exclude="$(OutputPath)IksAdminApi.pdb" />
     </ItemGroup>
 
-    <!-- Файлы переводов -->
+    <ItemGroup>
+      <SharedDlls Include="$(OutputPath)IksAdminApi.dll" Condition="Exists('$(OutputPath)IksAdminApi.dll')" />
+      <SharedDlls Include="$(OutputPath)IksAdminApi.pdb" Condition="Exists('$(OutputPath)IksAdminApi.pdb')" />
+    </ItemGroup>
+
     <ItemGroup>
       <LanguageFiles Include="$(MSBuildProjectDirectory)\lang\**\*" />
+      <ConfigFiles Include="$(MSBuildProjectDirectory)\configs\**\*" />
+      <SortMenuConfigFile Include="$(MSBuildProjectDirectory)\sortmenus.json" />
     </ItemGroup>
 
-    <!-- Создаём папки -->
     <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" />
     <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang" />
+    <MakeDir Directories="$(OutputPath)\bundle\shared\IksAdminApi" />
+    <MakeDir Directories="$(OutputPath)\bundle\configs\plugins\$(MSBuildProjectName)" />
 
-    <!-- Копируем только dll и pdb -->
     <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" SkipUnchangedFiles="true" />
-
-    <!-- Копируем lang -->
+    <!-- IksAdminApi.dll обычно не найдётся в $(OutputPath) вовсе (Private=false) - на этот
+         случай SharedDlls собран через Condition="Exists(...)" выше, чтобы Copy не падал
+         на пустом списке. Если файл всё же появится здесь (например, при локальной
+         сборке без restore) - положим его и в shared/, на всякий случай. -->
+    <Copy SourceFiles="@(SharedDlls)" DestinationFolder="$(OutputPath)\bundle\shared\IksAdminApi" SkipUnchangedFiles="true" Condition="'@(SharedDlls)' != ''" />
     <Copy SourceFiles="@(LanguageFiles)"
           DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)\lang\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ConfigFiles)"
+          DestinationFolder="$(OutputPath)\bundle\configs\plugins\$(MSBuildProjectName)\%(RecursiveDir)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(SortMenuConfigFile)"
+          DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)"
           SkipUnchangedFiles="true" />
   </Target>
 

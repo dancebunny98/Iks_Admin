@@ -11,7 +11,7 @@ namespace IksAdminApi;
 
 public static class AdminUtils
 {
-    public static BasePlugin CoreInstance;
+    public static BasePlugin CoreInstance = null!;
     public delegate Admin? AdminFinderByController(CCSPlayerController player);
     public static AdminFinderByController FindAdminByControllerMethod = null!;
     public delegate Admin? AdminFinderById(int id);

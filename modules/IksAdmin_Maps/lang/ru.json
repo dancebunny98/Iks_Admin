@@ -1,0 +1,8 @@
+{
+    "MenuOption.ChangeMap": "Сменить карту",
+    "MenuTitle.SelectCategory": "Выберите категорию",
+    "MenuTitle.SelectMap": "Выберите карту",
+    "Chat.NoMapsConfigured": "В конфиге модуля не настроено ни одной карты",
+    "Chat.ChangingMap": "Меняем карту на",
+    "Chat.PlayerChangedMap": "сменил карту на"
+}

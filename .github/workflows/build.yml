@@ -17,6 +17,12 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
+  # DLL-контракты, которые ДОЛЖНЫ приходить только из shared/<Имя>/ на сервере -
+  # никогда не должны лежать копией внутри папки конкретного плагина/модуля, иначе
+  # это два разных CLR-типа в разных AssemblyLoadContext, и capability-вызовы между
+  # плагинами (ядро IksAdmin <-> модули, любой модуль <-> VIPCore) ломаются.
+  # Используется шагом "Strip shared-contract DLLs" ниже как доп. страховка поверх
+  # Private=false в .csproj (тот флаг не всегда транзитивно наследуется).
   SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
 
 jobs:
@@ -47,8 +53,13 @@ jobs:
 
       - name: Restore & build core projects
         id: core_build
+        continue-on-error: true
         run: |
           set -e
+          # Собираем сначала IksAdminApi отдельно - её вывод идёт ТОЛЬКО в shared/
+          # (см. Collect ниже). IksAdmin.csproj её тоже соберёт транзитивно при
+          # своей сборке (нужно для компиляции), но Private=false в самом
+          # IksAdmin.csproj не даст этой копии попасть в его bin/.
           dotnet restore IksAdminApi/IksAdminApi.csproj
           dotnet build IksAdminApi/IksAdminApi.csproj -c ${{ env.CONFIGURATION }} --no-restore
           dotnet restore IksAdmin/IksAdmin.csproj
@@ -59,52 +70,35 @@ jobs:
         run: |
           set -e
 
-          # --- IksAdmin (plugin) : копируем все DLL и PDB из папки сборки ---
-          PLUGIN_OUT="out/addons/counterstrikesharp/plugins/IksAdmin"
-          mkdir -p "$PLUGIN_OUT"
-          BIN_IKSA="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0"
-          find "$BIN_IKSA" -maxdepth 1 \( -name "*.dll" -o -name "*.pdb" \) -exec cp {} "$PLUGIN_OUT"/ \;
-
-          # Не удаляем IksAdminApi – они остаются в папке плагина
-
-          # Копируем переводы, если есть
-          if [ -d "IksAdmin/lang" ]; then
-            mkdir -p "$PLUGIN_OUT/lang"
-            cp IksAdmin/lang/*.json "$PLUGIN_OUT/lang"/ 2>/dev/null || true
+          # IksAdmin.csproj's ExportPluginFiles target уже разложил всё по местам:
+          # bundle/plugins/IksAdmin (ядро + приватные зависимости + lang/configs/sortmenus)
+          # и bundle/shared/IksAdminApi (если Private=false почему-то не сработал).
+          BUNDLE="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0/bundle"
+          if [ ! -d "$BUNDLE" ]; then
+            echo "::error::$BUNDLE not found - ExportPluginFiles target didn't run or failed"
+            exit 1
           fi
 
-          # --- Создаём sortmenus.json в папке плагина (без heredoc) ---
-          printf '%s\n' '{
-            "iksadmin:menu:testmenu" : [
-                {
-                    "Id" : "iksadmin:option:1",
-                    "ViewFlags" : "not override",
-                    "View" : true
-                },
-                {
-                    "Id" : "iksadmin:option:3",
-                    "ViewFlags" : "not override",
-                    "View" : true
-                }
-            ],
-            "iksadmin:menu:main" : [
-                {
-                    "Id" : "iksadmin:option:sm",
-                    "View" : true
-                },
-                {
-                    "Id" : "iksadmin:option:bm",
-                    "View" : true
-                }
-            ]
-          }' > "$PLUGIN_OUT/sortmenus.json"
+          mkdir -p out/addons/counterstrikesharp
+          cp -r "$BUNDLE"/plugins out/addons/counterstrikesharp/
+          cp -r "$BUNDLE"/configs out/addons/counterstrikesharp/ 2>/dev/null || true
 
-          # --- IksAdminApi (shared) тоже копируем (дублируем) ---
-          SHARED_API="out/addons/counterstrikesharp/shared/IksAdminApi"
-          mkdir -p "$SHARED_API"
+          # shared/IksAdminApi - берём из ОТДЕЛЬНОЙ сборки IksAdminApi.csproj выше
+          # (Private=false в IksAdmin.csproj обычно значит, что в его собственном
+          # bundle/shared/ ничего не окажется - это ожидаемо, не ошибка).
+          mkdir -p out/addons/counterstrikesharp/shared/IksAdminApi
           BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
-          cp "$BIN_API/IksAdminApi.dll" "$SHARED_API/"
-          [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" "$SHARED_API/"
+          cp "$BIN_API/IksAdminApi.dll" out/addons/counterstrikesharp/shared/IksAdminApi/
+          [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" out/addons/counterstrikesharp/shared/IksAdminApi/ || true
+
+          # Страховка: убираем shared-контракты из папки плагина, если они всё же
+          # туда просочились (см. SHARED_DLLS выше).
+          for dep in $SHARED_DLLS; do
+            f="out/addons/counterstrikesharp/plugins/IksAdmin/$dep"
+            pdb="out/addons/counterstrikesharp/plugins/IksAdmin/${dep%.dll}.pdb"
+            [ -f "$f" ] && { echo "Removing bundled $dep from plugins/IksAdmin - must come from shared/ instead"; rm -f "$f"; }
+            [ -f "$pdb" ] && rm -f "$pdb"
+          done
 
           echo "Core artefacts collected:"
           find out -type f
@@ -130,13 +124,15 @@ jobs:
         module:
           - IksAdmin_OnlineAdmins
           - IksAdmin_VipGive
+          - IksAdmin_Maps
+          - IksAdmin_CustomMenus
     steps:
       - uses: actions/checkout@v5
 
       - name: Sanity check - required local projects present
         run: |
           MISSING=0
-          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/MenuManagerApi.dll"; do
+          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/MenuManagerApi.dll" "RequirmentsApi/VipCoreApi.dll"; do
             if [ ! -f "$PROJ" ]; then
               echo "::error::$PROJ not found at repo root."
               MISSING=1
@@ -145,7 +141,7 @@ jobs:
             fi
           done
           if [ "$MISSING" = "1" ]; then
-            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. MenuManagerApi.dll), /modules"
+            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. MenuManagerApi.dll + VipCoreApi.dll), /modules"
             echo "--- repo root listing ---"
             ls -la
             exit 1
