@@ -541,6 +541,11 @@ public class AdminApi : IIksAdminApi
         _mainMenuOptions.Add(new MainMenuOption(id, title, onExecute, viewFlags));
     }
 
+    public void UnregisterMainMenuOption(string id)
+    {
+        _mainMenuOptions.RemoveAll(o => o.Id == id);
+    }
+
     public void AddNewCommand(
         string command,
         string description,

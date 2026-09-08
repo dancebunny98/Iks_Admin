@@ -1,4 +1,5 @@
-﻿using CounterStrikeSharp.API;
+﻿using System.Text.Json;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
@@ -44,6 +45,9 @@ public class CustomMenuItem
     // По умолчанию null - НИКАКОЙ отдельной команды не создаётся, пункт доступен
     // ТОЛЬКО через дерево !admin. Право на алиас - то же ViewFlags, что и у пункта
     // (эффективное, с учётом наследования).
+    // ВАЖНО: алиасы регистрируются только при полной загрузке/перезагрузке плагина
+    // (css_plugins reload или рестарт сервера) - команда custommenus_reload (см.
+    // ниже) их НЕ добавляет и НЕ убирает "на лету", только структуру самих меню.
     public string? Alias { get; set; }
 
     // --- Пункт-подменю ---
@@ -75,9 +79,15 @@ public class CustomMenusConfig : BasePluginConfig
 
     public bool AnnounceToAll { get; set; } = true;
 
-    // Пример-заготовка: меню "Match Management" с обычным пунктом ("End Warmup"),
-    // переключателем (Pause/Resume Match) и вложенным подменю ("Team Controls")
-    // с более узкими правами, чем у родителя - демонстрирует все возможности сразу.
+    // Пример-заготовка на ТРИ уровня вложенности сразу, чтобы наглядно показать,
+    // что это не плоский список:
+    //   Match Management (меню верхнего уровня)
+    //     -> End Warmup / Pause⇄Resume Match (обычные пункты)
+    //     -> Team Controls (подменю)
+    //          -> CT Controls (под-подменю)
+    //               -> Give CT Bonus (обычный пункт)
+    //          -> T Controls (под-подменю)
+    //               -> Give T Bonus (обычный пункт)
     // Смело редактируйте, добавляйте свои меню/пункты/подменю без пересборки плагина.
     public List<CustomMenuDefinition> Menus { get; set; } = new()
     {
@@ -112,15 +122,31 @@ public class CustomMenusConfig : BasePluginConfig
                     {
                         new()
                         {
-                            Id = "freeze_all",
-                            Title = "Freeze All Players",
-                            Command = "mp_freezetime 9999; sm_slay @all 0", // пример-заглушка
+                            Id = "ct_controls",
+                            Title = "CT Controls",
+                            Submenu = new List<CustomMenuItem>
+                            {
+                                new()
+                                {
+                                    Id = "give_ct_bonus",
+                                    Title = "Give CT Bonus Money",
+                                    Command = "mp_startmoney 16000", // пример-заглушка
+                                },
+                            }
                         },
                         new()
                         {
-                            Id = "swap_teams",
-                            Title = "Swap Teams",
-                            Command = "mp_swapteams",
+                            Id = "t_controls",
+                            Title = "T Controls",
+                            Submenu = new List<CustomMenuItem>
+                            {
+                                new()
+                                {
+                                    Id = "give_t_bonus",
+                                    Title = "Give T Bonus Money",
+                                    Command = "mp_startmoney 16000", // пример-заглушка
+                                },
+                            }
                         },
                     }
                 },
@@ -132,11 +158,13 @@ public class CustomMenusConfig : BasePluginConfig
 public class Main : AdminModule, IPluginConfig<CustomMenusConfig>
 {
     public override string ModuleName => "IksAdmin_CustomMenus";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => "1.1.0";
     public override string ModuleAuthor => "iks__ modules";
 
     public CustomMenusConfig Config { get; set; } = new();
     public void OnConfigParsed(CustomMenusConfig config) => Config = config;
+
+    private const string ReloadPermission = "custom_menu.reload";
 
     // Состояние переключателей - true значит "уже нажали, показываем ToggleTitle".
     // Ключ - полный путь до пункта (idМеню:idПункта:idПодпункта:...), поэтому
@@ -145,22 +173,119 @@ public class Main : AdminModule, IPluginConfig<CustomMenusConfig>
     // например "матч на паузе" не должно пережить рестарт сервера как факт.
     private readonly Dictionary<string, bool> _toggleState = new();
 
+    // id всех пунктов главного меню, которые мы САМИ зарегистрировали (нужно, чтобы
+    // при custommenus_reload корректно убрать те, что пропали из нового конфига).
+    private readonly HashSet<string> _registeredMenuIds = new();
+
     public override void InitializeCommands()
     {
+        RegisterMenus();
+
+        // Алиасы регистрируются один раз при (пере)загрузке ПЛАГИНА - см. комментарий
+        // у CustomMenuItem.Alias. custommenus_reload их не трогает.
+        foreach (var definition in Config.Menus)
+        {
+            RegisterAliases(definition.Items, definition.ViewFlags, new List<string> { definition.Id });
+        }
+
+        Api.RegisterPermission(ReloadPermission, "z");
+        Api.AddNewCommand(
+            command: "custommenus_reload",
+            description: "Перечитать конфиг IksAdmin_CustomMenus без перезагрузки плагина",
+            permission: ReloadPermission,
+            usage: "css_custommenus_reload",
+            onExecute: OnReloadCommand,
+            whoCanExecute: CommandUsage.CLIENT_AND_SERVER
+        );
+    }
+
+    // Строит/перестраивает пункты в главном меню !admin по текущему Config.Menus.
+    // Вызывается и при первой загрузке, и из custommenus_reload.
+    private void RegisterMenus()
+    {
+        var newIds = new HashSet<string>();
+
         foreach (var definition in Config.Menus)
         {
             var def = definition; // локальная копия для замыкания
+            var id = "custom_menu_" + def.Id;
             var rootPath = new List<string> { def.Id };
 
             Api.RegisterMainMenuOption(
-                id: "custom_menu_" + def.Id,
+                id: id,
                 title: () => def.Title,
                 onExecute: (caller, backMenu) =>
                     OpenMenuLevel(caller, def.Items, def.Title, backMenu, def.ViewFlags, rootPath),
                 viewFlags: def.ViewFlags
             );
+            newIds.Add(id);
+        }
 
-            RegisterAliases(def.Items, def.ViewFlags, rootPath);
+        // Меню, которые были в СТАРОМ конфиге, но пропали в новом - убираем из !admin.
+        foreach (var staleId in _registeredMenuIds.Except(newIds).ToList())
+        {
+            Api.UnregisterMainMenuOption(staleId);
+        }
+
+        _registeredMenuIds.Clear();
+        foreach (var id in newIds) _registeredMenuIds.Add(id);
+    }
+
+    private void OnReloadCommand(CCSPlayerController? caller, List<string> args, CommandInfo info)
+    {
+        var configPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, ModuleName + ".json");
+
+        if (!File.Exists(configPath))
+        {
+            Reply(caller, $" {ChatColors.Red}Файл конфига не найден: {configPath}");
+            return;
+        }
+
+        CustomMenusConfig? parsed;
+        try
+        {
+            var json = File.ReadAllText(configPath);
+            parsed = JsonSerializer.Deserialize<CustomMenusConfig>(json, new JsonSerializerOptions
+            {
+                AllowTrailingCommas = true,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+                PropertyNameCaseInsensitive = true,
+            });
+        }
+        catch (Exception e)
+        {
+            // Намеренно НЕ трогаем текущий Config, если новый файл битый - лучше
+            // работать по старому конфигу, чем упасть/остаться без меню вообще.
+            Reply(caller, $" {ChatColors.Red}Ошибка чтения конфига, конфиг НЕ применён: {e.Message}");
+            return;
+        }
+
+        if (parsed == null)
+        {
+            Reply(caller, $" {ChatColors.Red}Конфиг пуст или не распознан, конфиг НЕ применён.");
+            return;
+        }
+
+        Config = parsed;
+        RegisterMenus();
+        // Сбрасываем состояние переключателей - после ручной правки конфига
+        // безопаснее показать все пункты в исходном ("не нажато") состоянии,
+        // чем рисковать несостыковкой со старыми путями пунктов.
+        _toggleState.Clear();
+
+        Reply(caller,
+            $" {ChatColors.Green}Конфиг IksAdmin_CustomMenus перечитан, меню обновлены. {ChatColors.White}(Alias-команды применятся только после css_plugins reload {ModuleName})");
+    }
+
+    private static void Reply(CCSPlayerController? caller, string message)
+    {
+        if (caller == null || !caller.IsValid)
+        {
+            Server.PrintToConsole(message);
+        }
+        else
+        {
+            caller.Print(message);
         }
     }
 

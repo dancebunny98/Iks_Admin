@@ -123,6 +123,13 @@ public interface IIksAdminApi
     void RegisterMainMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
         string viewFlags = "*");
     /// <summary>
+    /// Убирает ранее зарегистрированный через RegisterMainMenuOption пункт по его id.
+    /// Ничего не делает, если такого id нет. Полезно при перечитывании своего конфига
+    /// "на лету" (без css_plugins reload) - чтобы пункт для меню, которое убрали из
+    /// конфига, не остался висеть в !admin до перезагрузки плагина.
+    /// </summary>
+    void UnregisterMainMenuOption(string id);
+    /// <summary>
     /// Пункты главного меню, зарегистрированные модулями через RegisterMainMenuOption.
     /// Используется MenuMain при построении !admin - модулям обычно не нужен напрямую.
     /// </summary>
