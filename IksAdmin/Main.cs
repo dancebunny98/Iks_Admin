@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using MenuManager;
 using IksAdminApi;
@@ -28,6 +28,8 @@ public class Main : BasePlugin
     public static List<CCSPlayerController> BlockTeamChange = new();
     public static Dictionary<string, bool> KickOnFullConnect = new();
     public static Dictionary<string, string> KickOnFullConnectReason = new();
+
+    private int _infractionsSyncRunning;
 
     // INSTANT PUNISHMENT ON CONNECT
     public static Dictionary<string, PlayerComm> InstantComm = new();
@@ -72,6 +74,14 @@ public class Main : BasePlugin
         });
         RegisterListener<Listeners.OnClientAuthorized>(OnAuthorized);
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
+        AddTimer(3, () =>
+        {
+            // Синхронизация БД -> игра. Она нужна не только при входе: наказание
+            // может быть добавлено/изменено/снято из консоли, другого сервера или
+            // напрямую в MySQL, пока игрок уже находится на сервере.
+            _ = SyncOnlineInfractions();
+        }, TimerFlags.REPEAT);
+
         AddTimer(5, () => {
             foreach (var comm in AdminApi.Comms.ToArray())
             {
@@ -125,6 +135,79 @@ public class Main : BasePlugin
             
         }, TimerFlags.REPEAT);
     }
+
+    private async Task SyncOnlineInfractions()
+    {
+        if (Interlocked.Exchange(ref _infractionsSyncRunning, 1) == 1)
+            return;
+
+        try
+        {
+            // Снимок игроков берём до SQL-запросов, чтобы не трогать игровые объекты
+            // из фонового продолжения после await.
+            var players = Utilities.GetPlayers()
+                .Where(p => p != null && p.IsValid && !p.IsBot && p.AuthorizedSteamID != null)
+                .Select(p => new PlayerSyncTarget(p, p.GetSteamId(), p.GetIp()))
+                .ToList();
+
+            if (players.Count == 0)
+                return;
+
+            var bans = await DBBans.GetAllActiveBans();
+            var comms = await DBComms.GetAllActiveComms();
+
+            Server.NextWorldUpdate(() =>
+            {
+                foreach (var target in players)
+                {
+                    var player = target.Player;
+                    if (player == null || !player.IsValid || player.AuthorizedSteamID == null ||
+                        player.GetSteamId() != target.SteamId)
+                        continue;
+
+                    // SteamID/IP ban. Проверяем оба идентификатора, как и ReloadInfractions().
+                    var ban = bans.FirstOrDefault(b =>
+                        (b.BanType is 0 or 2 && b.SteamId == target.SteamId) ||
+                        (b.BanType is 1 or 2 && !string.IsNullOrEmpty(target.Ip) && b.Ip == target.Ip));
+
+                    if (ban != null)
+                    {
+                        DisconnectPlayer(
+                            player,
+                            ban.Reason,
+                            customMessageTemplate: Localizer["HTML.AdvancedBanMessage"],
+                            disconnectionReason: NetworkDisconnectionReason.NETWORK_DISCONNECT_STEAM_BANNED,
+                            admin: ban.Admin,
+                            disconnectedBy: "ban"
+                        );
+                        continue;
+                    }
+
+                    // Полностью пересобираем локальное состояние comms из БД. Это важно:
+                    // так исправляются как INSERT/UPDATE, так и DELETE/UNBAN напрямую в MySQL.
+                    var activeComms = comms.Where(c => c.SteamId == target.SteamId).ToList();
+                    AdminApi.Comms.RemoveAll(c => c.SteamId == target.SteamId);
+                    foreach (var comm in activeComms)
+                        AdminApi.Comms.Add(comm);
+
+                    // Silence и mute блокируют голос. Gag — только чат.
+                    player.VoiceFlags = activeComms.Any(c => c.MuteType is 0 or 2)
+                        ? VoiceFlags.Muted
+                        : VoiceFlags.Normal;
+                }
+            });
+        }
+        catch (Exception e)
+        {
+            AdminUtils.LogError("Infractions sync error: " + e);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _infractionsSyncRunning, 0);
+        }
+    }
+
+    private sealed record PlayerSyncTarget(CCSPlayerController Player, string SteamId, string? Ip);
 
     private void OnClientVoice(int playerSlot)
     {

@@ -114,12 +114,13 @@ public static class DBComms
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
-            var comms = (await conn.QueryAsync<PlayerComm>($@"
-                {SelectComm}
+            var comms = (await conn.QueryAsync<PlayerComm>(SelectComm + @"
                 where deleted_at is null
+                and unbanned_by is null
+                and (end_at > unix_timestamp() or end_at = 0)
                 and (server_id is null or server_id = @serverId)
-                and created_at => @time
-            ", new {serverId = Main.AdminApi.ThisServer.Id, time = AdminUtils.CurrentTimestamp() - timeOffset})).ToList();
+                and created_at >= @time
+            ", new { serverId = Main.AdminApi.ThisServer.Id, time = AdminUtils.CurrentTimestamp() - timeOffset })).ToList();
             return comms;
         }
         catch (Exception e)

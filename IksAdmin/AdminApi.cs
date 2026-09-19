@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using CoreRCON;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -1268,11 +1268,21 @@ public class AdminApi : IIksAdminApi
         if (player != null)
         {
             Helper.Print(player, Localizer["Message.WhenMuteEnd"]);
-            player.VoiceFlags = VoiceFlags.Normal;
         }
-        var exComm = Comms.GetMute();
+
+        // Удаляем именно наказание этого игрока. Старый код брал первый mute
+        // из общего списка Comms, поэтому при нескольких игроках мог снять чужой мут.
+        var exComm = Comms.FirstOrDefault(x => x.SteamId == mute.SteamId && x.MuteType == (int)PlayerComm.MuteTypes.Mute);
+        if (exComm != null)
+            Comms.Remove(exComm);
+
         Main.InstantComm.Remove(mute.SteamId);
-        Comms.Remove(exComm!);
+
+        // Если у игрока остался silence, голос всё ещё должен быть заблокирован.
+        if (player != null)
+            player.VoiceFlags = Comms.Any(x => x.SteamId == mute.SteamId && x.MuteType is 0 or 2)
+                ? VoiceFlags.Muted
+                : VoiceFlags.Normal;
     }
     
     public void GagPlayerInGame(PlayerComm gag)
@@ -1288,8 +1298,10 @@ public class AdminApi : IIksAdminApi
         {
             Helper.Print(player, Localizer["Message.WhenGagEnd"]);
         }
-        var exGag = Comms.GetGag();
-        Comms.Remove(exGag!);
+
+        var exGag = Comms.FirstOrDefault(x => x.SteamId == gag.SteamId && x.MuteType == (int)PlayerComm.MuteTypes.Gag);
+        if (exGag != null)
+            Comms.Remove(exGag);
     }
     private void UnSilencePlayerInGame(PlayerComm comm)
     {
@@ -1297,10 +1309,17 @@ public class AdminApi : IIksAdminApi
         if (player != null)
         {
             Helper.Print(player, Localizer["Message.WhenSilenceEnd"]);
-            player.VoiceFlags = VoiceFlags.Normal;
         }
-        var exComm = Comms.GetSilence();
-        Comms.Remove(exComm!);
+
+        var exComm = Comms.FirstOrDefault(x => x.SteamId == comm.SteamId && x.MuteType == (int)PlayerComm.MuteTypes.Silence);
+        if (exComm != null)
+            Comms.Remove(exComm);
+
+        // Если обычный mute всё ещё активен, после снятия silence голос не возвращаем.
+        if (player != null)
+            player.VoiceFlags = Comms.Any(x => x.SteamId == comm.SteamId && x.MuteType is 0 or 2)
+                ? VoiceFlags.Muted
+                : VoiceFlags.Normal;
     }
 
 

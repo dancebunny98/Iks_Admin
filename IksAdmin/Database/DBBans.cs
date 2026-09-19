@@ -152,6 +152,28 @@ public static class DBBans
             throw;
         }
     }
+    public static async Task<List<PlayerBan>> GetAllActiveBans()
+    {
+        try
+        {
+            await using var conn = new MySqlConnection(DB.ConnectionString);
+            await conn.OpenAsync();
+            var bans = (await conn.QueryAsync<PlayerBan>(SelectBans + @"
+                where deleted_at is null
+                and unbanned_by is null
+                and (end_at > unix_timestamp() or end_at = 0)
+                and (server_id is null or server_id = @serverId)
+                and ban_type in (0, 1, 2)
+            ", new { serverId = Main.AdminApi.ThisServer.Id })).ToList();
+            return bans;
+        }
+        catch (Exception e)
+        {
+            AdminUtils.LogError(e.ToString());
+            throw;
+        }
+    }
+
     public static async Task<List<PlayerBan>> GetAllBans()
     {
         try
