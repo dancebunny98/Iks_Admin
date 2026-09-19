@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using CoreRCON;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -753,7 +753,12 @@ public class AdminApi : IIksAdminApi
                             player = PlayersUtils.GetControllerByIp(ban.Ip!);
                         if (player != null)
                         {
-                            DisconnectPlayer(player, ban.Reason, customMessageTemplate: Localizer["HTML.AdvancedBanMessage"], admin: admin,
+                            // Бан всегда кикает мгновенно (instantly: true), минуя
+                            // HTML-баннер с таймером AdvancedKick — тот код-путь
+                            // приводил к крашу сервера (сегфолт вскоре после бана
+                            // онлайн-игрока). Обычный kick/warn по-прежнему может
+                            // использовать AdvancedKick, если он включён в конфиге.
+                            DisconnectPlayer(player, ban.Reason, instantly: true, customMessageTemplate: Localizer["HTML.AdvancedBanMessage"], admin: admin,
                                 disconnectionReason: NetworkDisconnectionReason.NETWORK_DISCONNECT_STEAM_BANNED, disconnectedBy: "ban");
                         }
                     });
@@ -1005,7 +1010,7 @@ public class AdminApi : IIksAdminApi
         disconnectionReason = disconnectionReason ?? NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED;
         if (!advanced || instantly) 
         {
-            player.Disconnect(NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED);
+            player.Disconnect((NetworkDisconnectionReason)disconnectionReason);
             return;
         }
         Main.BlockTeamChange.Add(player);
@@ -1030,7 +1035,7 @@ public class AdminApi : IIksAdminApi
             {
                 player.ClearHtmlMessage();
 
-                player.Disconnect(NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED);
+                player.Disconnect((NetworkDisconnectionReason)disconnectionReason);
             }
 
             edata.Invoke("disconnect_player_post");
