@@ -1146,6 +1146,60 @@ public class AdminApi : IIksAdminApi
         return summaries;
     }
     /// <summary>
+    /// Периодическая проверка на наказания, добавленные ВНЕШНЕ (например, напрямую в БД,
+    /// в обход самого плагина). Вызывается по таймеру для каждого онлайн-игрока (см. Main.cs).
+    /// В отличие от ReloadInfractions() — не трогает права/группу админа и не дублирует
+    /// уже применённые мут/гаг/силенс (проверяет по Comm.Id перед ApplyCommForPlayer).
+    /// </summary>
+    public async Task CheckExternalPunishments(string steamId, string? ip)
+    {
+        var ban = await GetActiveBan(steamId);
+        if (ban == null && ip != null && !Config.MirrorsIp.Contains(ip))
+        {
+            ban = await GetActiveBanIp(ip);
+        }
+        if (ban != null)
+        {
+            Server.NextWorldUpdate(() =>
+            {
+                var player = PlayersUtils.GetControllerBySteamId(steamId);
+                if (player == null) return;
+                AdminUtils.LogDebug($"External ban detected in DB for online player {steamId}, kicking...");
+                DisconnectPlayer(
+                    player,
+                    ban.Reason,
+                    instantly: true,
+                    customMessageTemplate: Localizer["HTML.AdvancedBanMessage"],
+                    admin: ban.Admin,
+                    disconnectionReason: NetworkDisconnectionReason.NETWORK_DISCONNECT_STEAM_BANNED,
+                    disconnectedBy: "ban"
+                );
+            });
+            return;
+        }
+
+        var comms = await GetActiveComms(steamId);
+        Server.NextWorldUpdate(() =>
+        {
+            // Новые (есть в БД, ещё не применены в памяти) — применяем
+            foreach (var comm in comms)
+            {
+                if (Comms.Any(x => x.Id == comm.Id)) continue;
+                AdminUtils.LogDebug($"External comm (type {comm.MuteType}) detected in DB for online player {steamId}, applying...");
+                ApplyCommForPlayer(comm);
+            }
+            // Пропавшие (были в памяти для этого игрока, в БД больше не активны — сняты вручную) — убираем
+            var trackedForPlayer = Comms.Where(x => x.SteamId == steamId).ToList();
+            foreach (var tracked in trackedForPlayer)
+            {
+                if (comms.Any(x => x.Id == tracked.Id)) continue;
+                AdminUtils.LogDebug($"External comm removal (type {tracked.MuteType}) detected in DB for online player {steamId}, removing...");
+                RemoveCommFromPlayer(tracked);
+            }
+        });
+    }
+
+    /// <summary>
     /// Перезагрузка/проверка и выдача/снятие наказаний игрока
     /// </summary>
     public async Task ReloadInfractions(string steamId, string? ip = null, bool instantlyKick = false)
@@ -1275,9 +1329,10 @@ public class AdminApi : IIksAdminApi
             Helper.Print(player, Localizer["Message.WhenMuteEnd"]);
             player.VoiceFlags = VoiceFlags.Normal;
         }
-        var exComm = Comms.GetMute();
+        // Раньше тут было Comms.GetMute() — снимало ПЕРВЫЙ мут во всём глобальном списке,
+        // а не мут именно этого игрока (ломалось при нескольких одновременно замученных).
         Main.InstantComm.Remove(mute.SteamId);
-        Comms.Remove(exComm!);
+        Comms.RemoveAll(x => x.SteamId == mute.SteamId && x.MuteType == 0);
     }
     
     public void GagPlayerInGame(PlayerComm gag)
@@ -1293,8 +1348,7 @@ public class AdminApi : IIksAdminApi
         {
             Helper.Print(player, Localizer["Message.WhenGagEnd"]);
         }
-        var exGag = Comms.GetGag();
-        Comms.Remove(exGag!);
+        Comms.RemoveAll(x => x.SteamId == gag.SteamId && x.MuteType == 1);
     }
     private void UnSilencePlayerInGame(PlayerComm comm)
     {
@@ -1304,8 +1358,7 @@ public class AdminApi : IIksAdminApi
             Helper.Print(player, Localizer["Message.WhenSilenceEnd"]);
             player.VoiceFlags = VoiceFlags.Normal;
         }
-        var exComm = Comms.GetSilence();
-        Comms.Remove(exComm!);
+        Comms.RemoveAll(x => x.SteamId == comm.SteamId && x.MuteType == 2);
     }
 
 
