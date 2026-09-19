@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using MenuManager;
 using IksAdminApi;
@@ -90,6 +90,30 @@ public class Main : BasePlugin
                     }
                     AdminApi.Warns.Remove(warn);
                 }
+            }
+        }, TimerFlags.REPEAT);
+
+        // Периодическая проверка наказаний, добавленных напрямую в БД (в обход плагина).
+        // Раз в ExternalPunishmentsCheckInterval секунд опрашиваем БД по каждому онлайн-игроку
+        // и применяем найденный бан/мут/гаг сразу, без необходимости переподключаться.
+        AddTimer(AdminApi.Config.ExternalPunishmentsCheckInterval, () =>
+        {
+            foreach (var player in Utilities.GetPlayers())
+            {
+                if (player == null || !player.IsValid || player.IsBot || player.AuthorizedSteamID == null) continue;
+                var steamId = player.AuthorizedSteamID.SteamId64.ToString();
+                var ip = player.GetIp();
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await AdminApi.CheckExternalPunishments(steamId, ip);
+                    }
+                    catch (Exception e)
+                    {
+                        AdminUtils.LogError(e.ToString());
+                    }
+                });
             }
         }, TimerFlags.REPEAT);
         
