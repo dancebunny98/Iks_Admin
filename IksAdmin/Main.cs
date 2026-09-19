@@ -172,11 +172,11 @@ public class Main : BasePlugin
 
                     if (ban != null)
                     {
-                        AdminApi.DisconnectPlayer(
+                        DisconnectPlayer(
                             player,
                             ban.Reason,
                             customMessageTemplate: Localizer["HTML.AdvancedBanMessage"],
-                            disconnectionReason: CounterStrikeSharp.API.ValveConstants.Protobuf.NetworkDisconnectionReason.NETWORK_DISCONNECT_STEAM_BANNED,
+                            disconnectionReason: NetworkDisconnectionReason.NETWORK_DISCONNECT_STEAM_BANNED,
                             admin: ban.Admin,
                             disconnectedBy: "ban"
                         );
