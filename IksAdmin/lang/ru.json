@@ -231,5 +231,11 @@
     "Message.FakeHideMessage" : "Игрок {red}{name} отключился.",
     "Message.CooldownPassed" : "Вы снова можете пользоваться функцией {red}{function}",
     "ActionError.InCooldownForRound" : "{red}Вы больше не можете использовать эту функцию до следующего раунда!",
-    "ActionError.InCooldownForTime" : "{red}Вы не можете использовать эту функцию ещё {time} сек!"
+    "ActionError.InCooldownForTime" : "{red}Вы не можете использовать эту функцию ещё {time} сек!",
+
+    // AntiFlood
+    "AntiFlood.MessageBlocked": "{red}Не флудите в чат! Сообщение заблокировано.",
+    "AntiFlood.GagApplied": "{red}Вы слишком часто пишете в чат — временно ограничены в чате.",
+    "AntiFlood.GagReason": "Авто-гаг: флуд в чат",
+    "AntiFlood.KickReason": "Флуд в чат (анти-флуд система)"
 }

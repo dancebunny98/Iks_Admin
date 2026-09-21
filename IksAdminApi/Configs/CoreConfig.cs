@@ -39,6 +39,12 @@ public class CoreConfig : PluginCFG<CoreConfig>, IPluginCFG
     public bool IgnoreExpiredAdminsInAmMenu {get; set;} = true; // Включает игнорирование истёкших админов в админ меню
     public int PunishmentMessagesType {get; set;} = 0; // 0 - Сообщение о наказании(Бан/Мут/Гаг) отправляется всем игрокам, 1 - только Админу и Цели, 2 - Только Админам и Цели  
     public float ExternalPunishmentsCheckInterval {get; set;} = 10f; // Раз в сколько секунд проверять БД на наказания, добавленные напрямую (в обход плагина), и применять их к онлайн-игрокам
+    // Защита от чат-флуда/спама, которым можно нагружать сервер (много сообщений в чат подряд)
+    public bool AntiFloodEnabled {get; set;} = true; // Включить защиту от флуда в чат
+    public int AntiFloodMaxMessages {get; set;} = 5; // Сколько сообщений разрешено за окно AntiFloodWindowSeconds
+    public double AntiFloodWindowSeconds {get; set;} = 4; // Размер окна в секундах для подсчёта сообщений
+    public int AntiFloodMaxViolations {get; set;} = 3; // Сколько раз подряд можно словить превышение лимита, прежде чем игрока кикнет
+    public float AntiFloodAutoGagSeconds {get; set;} = 30f; // На сколько секунд авто-гагнуть игрока при 1-м/2-м превышении (0 - не гагать, просто блокировать сообщения)
     public void Set()
     {
         Config = ReadOrCreate(AdminUtils.CoreInstance.ModuleDirectory +"/../../configs/plugins/IksAdmin/core.json", Config);

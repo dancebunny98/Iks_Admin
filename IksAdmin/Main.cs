@@ -1,4 +1,4 @@
-using CounterStrikeSharp.API.Core;
+﻿using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Capabilities;
 using MenuManager;
 using IksAdminApi;
@@ -283,6 +283,62 @@ public class Main : BasePlugin
             msg = msg.Remove(msg.Length - 1, 1);
         }
         AdminUtils.LogDebug($"{player.PlayerName} message: {msg}");
+
+        // Защита от чат-флуда: если игрок шлёт сообщения слишком часто — блокируем
+        // (не даём команде выполниться дальше, чат-сообщение вообще не обрабатывается
+        // и не рассылается), а при повторных превышениях — глушим/кикаем.
+        // Специально не пишем ничего в БД на этом пути — именно лишняя нагрузка на БД
+        // при атаке усугубляла лаги.
+        if (AdminApi.Config.AntiFloodEnabled)
+        {
+            var floodSteamId = player.GetSteamId();
+            if (AntiFlood.IsFlooding(floodSteamId, AdminApi.Config.AntiFloodMaxMessages, AdminApi.Config.AntiFloodWindowSeconds))
+            {
+                var violations = AntiFlood.RegisterViolation(floodSteamId);
+                AdminUtils.LogDebug($"AntiFlood: {player.PlayerName} ({floodSteamId}) flooding chat, violation #{violations}");
+
+                if (violations >= AdminApi.Config.AntiFloodMaxViolations)
+                {
+                    // Уже не в первый раз продолжает флудить (в т.ч. вероятно уже под авто-гагом,
+                    // но всё равно спамит say-командами, каждая всё ещё стоит серверу немного
+                    // работы на обработку) — кикаем, чтобы полностью остановить нагрузку.
+                    AdminApi.DisconnectPlayer(player, Localizer["AntiFlood.KickReason"], instantly: true,
+                        disconnectionReason: NetworkDisconnectionReason.NETWORK_DISCONNECT_KICKED, disconnectedBy: "antiflood");
+                    return HookResult.Stop;
+                }
+
+                if (AdminApi.Config.AntiFloodAutoGagSeconds > 0 && !player.GetComms().HasGag())
+                {
+                    var now = AdminUtils.CurrentTimestamp();
+                    var autoGag = new PlayerComm(
+                        id: 0,
+                        steamId: long.Parse(floodSteamId),
+                        ip: null,
+                        name: player.PlayerName,
+                        muteType: 1, // Gag
+                        duration: (int)AdminApi.Config.AntiFloodAutoGagSeconds,
+                        reason: Localizer["AntiFlood.GagReason"],
+                        serverId: AdminApi.ThisServer?.Id,
+                        adminId: 0,
+                        unbannedBy: null,
+                        unbanReason: null,
+                        createdAt: now,
+                        endAt: now + (int)AdminApi.Config.AntiFloodAutoGagSeconds,
+                        updatedAt: now,
+                        deletedAt: null
+                    );
+                    AdminApi.GagPlayerInGame(autoGag);
+                    Helper.Print(player, Localizer["AntiFlood.GagApplied"]);
+                }
+                else
+                {
+                    Helper.Print(player, Localizer["AntiFlood.MessageBlocked"]);
+                }
+
+                return HookResult.Stop;
+            }
+        }
+
         if (msg.StartsWith("!") || msg.StartsWith("/")) {
             if (AdminApi.NextPlayerMessage.ContainsKey(player))
             {
@@ -884,6 +940,7 @@ public class Main : BasePlugin
         LastClientVoicesTime.Remove(player.GetSteamId());
         LastClientVoices.Remove(LastClientVoices.FirstOrDefault(x => x.SteamId == player.GetSteamId())!);
         KickOnFullConnectReason.Remove(player.GetSteamId());
+        AntiFlood.Cleanup(player.GetSteamId());
         CmdBase.HidenPlayers.Remove(player);
         AdminApi.HidenAdmins.Remove(player.Admin()!);
         var comms = player.GetComms();

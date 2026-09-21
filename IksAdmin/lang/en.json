@@ -225,6 +225,11 @@
     // v16
     "Announce.Rename": "Admin {red}{admin}{white} renamed player {red}{name}{white} to {red}{newName}{white}!",
     "Message.OnRename": "Enter the player's new nickname: !s1mple",
-    "MenuOption.PM.Rename": "Rename player"
-    
+    "MenuOption.PM.Rename": "Rename player",
+
+    // AntiFlood
+    "AntiFlood.MessageBlocked": "{red}Don't flood the chat! Message blocked.",
+    "AntiFlood.GagApplied": "{red}You're chatting too fast — temporarily restricted from chat.",
+    "AntiFlood.GagReason": "Auto-gag: chat flood",
+    "AntiFlood.KickReason": "Chat flood (anti-flood system)"
 }
