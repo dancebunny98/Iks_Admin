@@ -6,29 +6,52 @@ namespace IksAdmin;
 
 public static class DBServers
 {
+    // Реальные длины колонок в БД (с запасом). Держи синхронно с SQL-миграцией:
+    //   ALTER TABLE iks_servers MODIFY name VARCHAR(255) NOT NULL;
+    //   ALTER TABLE iks_servers MODIFY ip   VARCHAR(64)  NOT NULL;
+    //   ALTER TABLE iks_servers MODIFY rcon VARCHAR(128) NULL;
+    private const int MaxNameLen = 255;
+    private const int MaxIpLen   = 64;
+    private const int MaxRconLen = 128;
+
+    private static string Trunc(string? s, int max)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        return s.Length > max ? s.Substring(0, max) : s;
+    }
+
     public static async Task Add(ServerModel server)
     {
+        // Обрезаем поля ДО подключения к БД — иначе MySqlException "Data too long"
+        // на name/ip/rcon валит весь ReloadDataFromDb, ThisServer остаётся null,
+        // и дальше весь плагин сыпет NullReferenceException в DBBans/DBAdmins.
+        var name = Trunc(server.Name, MaxNameLen);
+        var ip   = Trunc(server.Ip,   MaxIpLen);
+        var rcon = Trunc(server.Rcon, MaxRconLen);
+
         try
         {
-            AdminUtils.LogDebug("Add server to base...");
+            AdminUtils.LogDebug($"Add server to base... id={server.Id} ip={ip} name_len={name.Length}");
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
+
             var existingServer = await Get(server.Id);
             if (existingServer != null)
             {
                 AdminUtils.LogDebug("Server exists with id " + existingServer.Id);
                 server.Id = existingServer.Id;
-                await Update(server);
+                await Update(server, name, ip, rcon);
                 return;
             }
+
             await conn.QueryAsync(@"
                 insert into iks_servers(id, ip, name, rcon, created_at, updated_at)
                 values(@serverId, @ip, @name, @rcon, unix_timestamp(), unix_timestamp())
             ", new {
                 serverId = server.Id,
-                ip = server.Ip,
-                name = server.Name,
-                rcon = server.Rcon
+                ip,
+                name,
+                rcon
             });
             AdminUtils.LogDebug("Server added to db ✔");
         }
@@ -39,7 +62,7 @@ public static class DBServers
         }
     }
 
-    private static async Task Update(ServerModel server)
+    private static async Task Update(ServerModel server, string name, string ip, string rcon)
     {
         try
         {
@@ -54,15 +77,15 @@ public static class DBServers
                 updated_at = unix_timestamp(),
                 deleted_at = null
                 where id = @id
-            ", 
+            ",
             new {
-                ip = server.Ip,
-                name = server.Name,
-                rcon = server.Rcon,
+                ip,
+                name,
+                rcon,
                 id = server.Id
             }
             );
-            AdminUtils.LogDebug($"Server updated ✔");
+            AdminUtils.LogDebug("Server updated ✔");
         }
         catch (MySqlException e)
         {
@@ -101,6 +124,7 @@ public static class DBServers
             throw;
         }
     }
+
     public static async Task<List<ServerModel>> GetAll()
     {
         try
