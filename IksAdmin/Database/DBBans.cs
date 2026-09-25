@@ -25,8 +25,29 @@ public static class DBBans
     deleted_at as deletedAt
     from iks_bans
     ";
+
+    /// <summary>
+    /// Возвращает Id текущего сервера или null, если он ещё не зарегистрирован
+    /// в БД (ThisServer выставляется в AdminApi.ReloadDataFromDb, который может
+    /// завершиться позже или упасть на DBServers.Add — например, из-за
+    /// "Data too long for column 'name'"). Без этой проверки каждый вызов
+    /// DBBans.* давал NullReferenceException на Main.AdminApi.ThisServer.Id
+    /// и флудил лог из таймера CheckExternalPunishments.
+    /// </summary>
+    private static int? GetServerId()
+    {
+        return Main.AdminApi?.ThisServer?.Id;
+    }
+
     public static async Task<PlayerBan?> GetActiveBan(string steamId)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetActiveBan: ThisServer is null, skip.");
+            return null;
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -38,18 +59,28 @@ public static class DBBans
                 and (end_at > unix_timestamp() or end_at = 0)
                 and (server_id is null or server_id = @serverId)
                 and (ban_type=0 or ban_type=2)
-            ", new {steamId, serverId = Main.AdminApi.ThisServer.Id, timestamp = AdminUtils.CurrentTimestamp()});
+            ", new {steamId, serverId});
             return ban;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            // НЕ throw: иначе исключение улетает в CheckExternalPunishments,
+            // оттуда в Task.Run таймера Main.cs, и лог забивается
+            // дублирующимися [Admin Error] на каждый цикл.
+            return null;
         }
     }
 
     public static async Task<List<PlayerBan>> GetLastAdminBans(Admin admin, int time)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetLastAdminBans: ThisServer is null, skip.");
+            return new List<PlayerBan>();
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -60,17 +91,25 @@ public static class DBBans
                 and admin_id = @admin_id
                 and (server_id is null or server_id = @serverId)
                 and created_at > unix_timestamp() - @time
-            ", new {time, admin_id = admin.Id, serverId = Main.AdminApi.ThisServer.Id})).ToList();
+            ", new {time, admin_id = admin.Id, serverId})).ToList();
             return bans;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<PlayerBan>();
         }
     }
+
     public static async Task<List<PlayerBan>> GetLastBans(int time)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetLastBans: ThisServer is null, skip.");
+            return new List<PlayerBan>();
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -80,17 +119,25 @@ public static class DBBans
                 where deleted_at is null
                 and (server_id is null or server_id = @serverId)
                 and created_at > unix_timestamp() - @time
-            ", new {time, serverId = Main.AdminApi.ThisServer.Id})).ToList();
+            ", new {time, serverId})).ToList();
             return bans;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<PlayerBan>();
         }
     }
+
     public static async Task<PlayerBan?> GetActiveBanIp(string ip)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetActiveBanIp: ThisServer is null, skip.");
+            return null;
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -103,17 +150,25 @@ public static class DBBans
                 and (end_at > unix_timestamp() or end_at = 0)
                 and (server_id is null or server_id = @serverId)
                 and (ban_type = 1 or ban_type = 2)
-            ", new {ip, serverId = Main.AdminApi.ThisServer.Id});
+            ", new {ip, serverId});
             return ban;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
+
     public static async Task<List<PlayerBan>> GetAllIpBans(string ip)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetAllIpBans: ThisServer is null, skip.");
+            return new List<PlayerBan>();
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -123,17 +178,25 @@ public static class DBBans
                 where deleted_at is null
                 and ip = @ip and (ban_type = 1 or ban_type = 2)
                 and (server_id is null or server_id = @serverId)
-            ", new {ip, serverId = Main.AdminApi.ThisServer.Id})).ToList();
+            ", new {ip, serverId})).ToList();
             return bans;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<PlayerBan>();
         }
     }
+
     public static async Task<List<PlayerBan>> GetAllBans(string steamId)
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetAllBans(steamId): ThisServer is null, skip.");
+            return new List<PlayerBan>();
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -143,17 +206,25 @@ public static class DBBans
                 where deleted_at is null
                 and steam_id = @steamId
                 and (server_id is null or server_id = @serverId)
-            ", new {steamId, serverId = Main.AdminApi.ThisServer.Id})).ToList();
+            ", new {steamId, serverId})).ToList();
             return bans;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<PlayerBan>();
         }
     }
+
     public static async Task<List<PlayerBan>> GetAllBans()
     {
+        var serverId = GetServerId();
+        if (serverId == null)
+        {
+            AdminUtils.LogDebug("DBBans.GetAllBans: ThisServer is null, skip.");
+            return new List<PlayerBan>();
+        }
+
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
@@ -162,15 +233,16 @@ public static class DBBans
                 {SelectBans}
                 where deleted_at is null
                 and (server_id is null or server_id = @serverId)
-            ", new {serverId = Main.AdminApi.ThisServer.Id})).ToList();
+            ", new {serverId})).ToList();
             return bans;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<PlayerBan>();
         }
     }
+
     /// <summary>
     /// return statuses: 0 - banned, 1 - already banned, -1 - other
     /// </summary>
@@ -242,6 +314,7 @@ public static class DBBans
             return new DBResult(null, -1, e.ToString());
         }
     }
+
     public static bool CanUnban(Admin admin, PlayerBan existingBan)
     {
         var bannedBy = existingBan.Admin;
@@ -258,5 +331,4 @@ public static class DBBans
         if (admin.HasPermissions("other.equals_immunity_action") && admin.HasPermissions("blocks_manage.remove_immunity") && bannedBy.CurrentImmunity <= admin.CurrentImmunity) return true;
         return false;
     }
-
 }
