@@ -24,28 +24,41 @@ public static class DBAdmins
         from iks_admins
     ";
 
+    /// <summary>
+    /// Возвращает Id текущего сервера или null, если он ещё не зарегистрирован
+    /// в БД. ThisServer выставляется в AdminApi.ReloadDataFromDb асинхронно
+    /// и может быть null, если DBServers.Add упал (например, Data too long
+    /// for column 'name'). Без этого guard'а каждый метод ниже падал с NRE
+    /// на Main.AdminApi.ThisServer.Id.
+    /// </summary>
+    private static int? ResolveServerId(int? serverId)
+    {
+        return serverId ?? Main.AdminApi?.ThisServer?.Id;
+    }
+
     public static async Task SetAdminsToServer()
     {
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
-            
+
             var adminsToServer = (await conn.QueryAsync<AdminToServer>(@"
             select
             admin_id as adminId,
             server_id as serverId
             from iks_admin_to_server
             ")).ToList();
-            Main.AdminApi.AdminsToServer = adminsToServer ;
+            Main.AdminApi.AdminsToServer = adminsToServer;
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            // не throw: иначе RefreshAdmins упадёт и ReloadDataFromDb тоже
         }
     }
-    public static async Task<Admin> AddAdmin(Admin admin)
+
+    public static async Task<Admin?> AddAdmin(Admin admin)
     {
         try
         {
@@ -63,12 +76,13 @@ public static class DBAdmins
             AdminUtils.LogDebug($"Add admin to base...");
             return await AddAdminToBase(admin);
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
+
     public static async Task AddServerIdToAdmin(int adminId, int? serverId)
     {
         try
@@ -94,12 +108,13 @@ public static class DBAdmins
             (@adminId, @serverId)
             ", new {adminId, serverId});
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            // не throw — вызывается из CreateAdmin
         }
     }
+
     public static async Task RemoveServerIdFromAdmin(int adminId, int serverId)
     {
         try
@@ -118,12 +133,12 @@ public static class DBAdmins
             delete from iks_admin_to_server where admin_id = @adminId and server_id = @serverId
             ", new {adminId, serverId});
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
         }
     }
+
     public static async Task RemoveServerIdsFromAdmin(int adminId)
     {
         try
@@ -147,20 +162,23 @@ public static class DBAdmins
                     AdminUtils.CoreApi.AdminsToServer.Remove(adm);
             }
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
         }
     }
+
     public static async Task<Admin?> GetAdmin(string steamId, int? serverId = null, bool ignoreDeleted = true)
     {
         try
         {
-            if (serverId == null) 
+            var sid = ResolveServerId(serverId);
+            if (sid == null)
             {
-                serverId = Main.AdminApi.ThisServer.Id;
+                AdminUtils.LogDebug("DBAdmins.GetAdmin: ThisServer is null, skip.");
+                return null;
             }
+
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
             var ignoreDeletedString = ignoreDeleted ? "and deleted_at is null" : "";
@@ -169,22 +187,31 @@ public static class DBAdmins
                 where steam_id = @steamId
                 {ignoreDeletedString}
             ", new { steamId })).ToList();
-            return admins.FirstOrDefault(x => x.Servers.Contains((int)serverId));
+            return admins.FirstOrDefault(x => x.Servers.Contains((int)sid));
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
+
     public static async Task<Admin?> GetAdminById(int id, int? serverId = null, bool ignoreDeleted = true)
     {
         try
         {
-            if (serverId == null) 
+            // serverId здесь фактически не используется в SQL, но нужен для
+            // ResolveServerId-guard'а: если ThisServer ещё не зарегистрирован,
+            // не стоит дёргать БД из мест, где admin_id ещё не валиден.
+            // Однако для оффлайн-операций (например, AddServerIdToAdmin) admin
+            // может существовать и без ThisServer. Поэтому если serverId
+            // явно не задан и ThisServer == null — всё равно пытаемся прочитать
+            // строку, но логируем предупреждение.
+            if (serverId == null && Main.AdminApi?.ThisServer == null)
             {
-                serverId = Main.AdminApi.ThisServer.Id;
+                AdminUtils.LogDebug("DBAdmins.GetAdminById: ThisServer is null, continuing without server filter.");
             }
+
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
             var ignoreDeletedString = ignoreDeleted ? "and deleted_at is null" : "";
@@ -196,22 +223,17 @@ public static class DBAdmins
 
             return admin;
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
-
 
     public static async Task<List<Admin>> GetAllAdmins(int? serverId = null, bool ignoreDeleted = true)
     {
         try
         {
-            if (serverId == null) 
-            {
-                serverId = Main.AdminApi.Config.ServerId;
-            }
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
             var ignoreDeletedString = ignoreDeleted ? "where deleted_at is null" : "";
@@ -222,12 +244,13 @@ public static class DBAdmins
 
             return admins;
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<Admin>();
         }
     }
+
     public static async Task<List<Admin>> GetAllAdminsBySteamId(string steamId, bool ignoreDeleted = true)
     {
         try
@@ -243,20 +266,25 @@ public static class DBAdmins
 
             return admins;
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return new List<Admin>();
         }
     }
 
-    public static async Task<Admin> AddAdminToBase(Admin admin)
+    public static async Task<Admin?> AddAdminToBase(Admin admin)
     {
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await conn.OpenAsync();
-            int id = await conn.QuerySingleAsync<int>(@"
+
+            // QuerySingleAsync<int> бросает InvalidOperationException, если
+            // last_insert_id() не вернул ни одной строки (бывает при определённых
+            // настройках соединения). QueryFirstOrDefaultAsync<int?> возвращает
+            // null вместо исключения.
+            var id = await conn.QueryFirstOrDefaultAsync<int?>(@"
                 insert into iks_admins
                 (steam_id, name, flags, immunity, group_id, discord, vk, end_at, created_at, updated_at)
                 values
@@ -272,17 +300,25 @@ public static class DBAdmins
                 vk = admin.Vk,
                 endAt = admin.EndAt
             });
+
+            if (id == null)
+            {
+                AdminUtils.LogError("AddAdminToBase: last_insert_id() returned no rows.");
+                return null;
+            }
+
             AdminUtils.LogDebug($"Admin added to base ✔");
-            admin.Id = id;
+            admin.Id = id.Value;
             return admin;
         }
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
-    public static async Task<Admin> UpdateAdminInBase(Admin admin)
+
+    public static async Task<Admin?> UpdateAdminInBase(Admin admin)
     {
         try
         {
@@ -316,13 +352,22 @@ public static class DBAdmins
                 deletedAt = admin.DeletedAt
             });
             AdminUtils.LogDebug($"Admin updated in base ✔");
+
             var updatedAdmin = await GetAdmin(admin.SteamId);
-            return updatedAdmin!;
+            if (updatedAdmin == null)
+            {
+                // GetAdmin мог вернуть null из-за ThisServer == null или из-за
+                // того, что админ не привязан к текущему серверу. Возвращаем
+                // исходный admin — он уже содержит актуальные поля в памяти.
+                AdminUtils.LogDebug("UpdateAdminInBase: GetAdmin returned null after update, returning original admin.");
+                return admin;
+            }
+            return updatedAdmin;
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            return null;
         }
     }
 
@@ -341,10 +386,9 @@ public static class DBAdmins
             });
             AdminUtils.LogDebug($"Admin deleted ✔");
         }
-        catch (MySqlException e)
+        catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
         }
     }
 
@@ -359,7 +403,18 @@ public static class DBAdmins
             AdminUtils.LogDebug("Refreshing admins...");
             var admins = await GetAllAdmins();
             AdminUtils.LogDebug("2/5 Admins getted ✔");
-            Main.AdminApi.ConsoleAdmin = admins.First(x => x.SteamId.ToLower() == "console");
+
+            // First(...) бросает InvalidOperationException, если в iks_admins нет
+            // строки с steam_id = 'console'. На чистой БД её точно нет, поэтому
+            // сервер падал прямо здесь. FirstOrDefault безопасен.
+            var consoleAdmin = admins.FirstOrDefault(x => x.SteamId.ToLower() == "console");
+            if (consoleAdmin == null)
+            {
+                AdminUtils.LogError(
+                    "RefreshAdmins: no 'console' admin found in iks_admins. " +
+                    "Add a row with steam_id='console' to enable console actions.");
+            }
+            Main.AdminApi.ConsoleAdmin = consoleAdmin!;
             AdminUtils.LogDebug("3/5 Console admin setted ✔");
             admins = admins.Where(x => x.SteamId.ToLower() != "console").ToList();
             Main.AdminApi.AllAdmins = await GetAllAdmins(ignoreDeleted: false);
@@ -368,7 +423,8 @@ public static class DBAdmins
             Main.AdminApi.ServerAdmins.Clear();
             foreach (var admin in Main.AdminApi.AllAdmins)
             {
-                if ((admin.Servers.Contains(serverId) || admin.OnAllServers|| ignoreAdminServers) && admin.DeletedAt == null){
+                if ((admin.Servers.Contains(serverId) || admin.OnAllServers || ignoreAdminServers) && admin.DeletedAt == null)
+                {
                     if (ulong.TryParse(admin.SteamId, out var uSteamId))
                         Main.AdminApi.ServerAdmins[uSteamId] = admin;
                 }
@@ -387,7 +443,9 @@ public static class DBAdmins
         catch (Exception e)
         {
             AdminUtils.LogError(e.ToString());
-            throw;
+            // Не throw: RefreshAdmins вызывается из ReloadDataFromDb, а тот
+            // из конструктора AdminApi / команд css_am_reload. Падение здесь
+            // оставляет ThisServer выставленным, но ломает последующую логику.
         }
     }
 }
