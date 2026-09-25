@@ -99,6 +99,20 @@ public class Main : BasePlugin
         // и применяем найденный бан/мут/гаг сразу, без необходимости переподключаться.
         AddTimer(AdminApi.Config.ExternalPunishmentsCheckInterval, () =>
         {
+            // ВАЖНО: ThisServer выставляется в AdminApi.ReloadDataFromDb, который
+            // выполняется асинхронно в конструкторе AdminApi и может завершиться
+            // позже старта таймера (или вообще не дойти до конца, если упадёт
+            // DBServers.Add, например из-за "Data too long for column 'name'").
+            //
+            // Раньше в этой ситуации Main.AdminApi.ThisServer == null, и каждый
+            // вызов CheckExternalPunishments → GetActiveBan → DBBans.GetActiveBan
+            // падал с NullReferenceException на Main.AdminApi.ThisServer.Id.
+            // Плюс исключение улетало из Task.Run обратно и логировалось второй раз.
+            // Итог — флуд [Admin Error] каждые N секунд для каждого игрока.
+            //
+            // Теперь до регистрации сервера в БД таймер просто ничего не делает.
+            if (AdminApi?.ThisServer == null) return;
+
             foreach (var player in Utilities.GetPlayers())
             {
                 if (player == null || !player.IsValid || player.IsBot || player.AuthorizedSteamID == null) continue;
