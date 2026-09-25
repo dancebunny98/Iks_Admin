@@ -25,9 +25,28 @@ public static class CmdAdminManage
             throw new ArgumentException("Time must be a number");
         }
         int? serverId = null;
-        
+
         if (args[3] != "all")
-            serverId = args[3] == "this" ? _api.ThisServer.Id : int.Parse(args[3]);
+        {
+            if (args[3] == "this")
+            {
+                // ВАЖНО: ThisServer выставляется в AdminApi.ReloadDataFromDb
+                // асинхронно в конструкторе AdminApi. Если DBServers.Add упал
+                // (например, "Data too long for column 'name'"), ThisServer
+                // остаётся null и обращение к ThisServer.Id кидало NRE прямо
+                // в обработчике команды. Теперь — вежливый отказ вместо краша.
+                if (_api.ThisServer == null)
+                {
+                    Helper.Reply(info, "Server not yet registered in DB, try again in a moment.");
+                    return;
+                }
+                serverId = _api.ThisServer.Id;
+            }
+            else
+            {
+                serverId = int.Parse(args[3]);
+            }
+        }
 
         switch (args.Count)
         {
