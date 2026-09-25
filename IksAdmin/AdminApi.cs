@@ -246,10 +246,34 @@ public class AdminApi : IIksAdminApi
         {
             AdminUtils.LogDebug("Init Database");
             await DB.Init();
+
             AdminUtils.LogDebug("Refresh Servers");
             await DBServers.Add(serverModel);
+
             AllServers = await DBServers.GetAll();
-            ThisServer = AllServers.First(x => x.Id == serverModel.Id);
+
+            // ВАЖНО: раньше здесь было AllServers.First(...) — если по какой-то причине
+            // сервер не появился в iks_servers (например, DBServers.Add упал с Data too long,
+            // или запись была удалена), First() бросал InvalidOperationException, и это
+            // исключение улетало дальше в Task.Run в конструкторе — а ThisServer оставался
+            // null, после чего ВСЕ обращения к Main.AdminApi.ThisServer.Id (в DBBans,
+            // DBAdmins, SetCookies, SendRconToAllServers, таймере CheckExternalPunishments)
+            // падали с NullReferenceException и флудили лог.
+            //
+            // Теперь: FirstOrDefault, при null — явная ошибка в лог и выход без throw.
+            // Плагин продолжит работать (с ограничениями), но не будет спамить NRE.
+            var thisServer = AllServers.FirstOrDefault(x => x.Id == serverModel.Id);
+            if (thisServer == null)
+            {
+                AdminUtils.LogError(
+                    $"ReloadDataFromDb: ThisServer (id={serverModel.Id}) not found in iks_servers after Add. " +
+                    "Проверьте длину колонки iks_servers.name (должна быть >= ServerName из конфига) " +
+                    "и корректность Config.ServerId/ServerIp/ServerName.");
+                ThisServer = null!;
+                return;
+            }
+            ThisServer = thisServer;
+
             AdminUtils.LogDebug("Refresh Admins");
             await RefreshAdmins();
             Warns = await DBWarns.GetAllActive();
@@ -489,9 +513,13 @@ public class AdminApi : IIksAdminApi
 
     public async Task SendRconToAllServers(string command, bool ignoreSelf = false)
     {
+        // ThisServer может быть ещё не выставлен, если ReloadDataFromDb не дошёл до конца.
+        // В этом случае игнорировать себя просто нечем — отправляем всем, но не падаем.
+        var selfIp = ThisServer?.Ip;
+
         foreach (var server in AllServers)
         {
-            if (ignoreSelf && server.Ip == ThisServer.Ip) continue;
+            if (ignoreSelf && selfIp != null && server.Ip == selfIp) continue;
             try
             {
                 await SendRconToServer(server, command);
@@ -1980,6 +2008,11 @@ public class AdminApi : IIksAdminApi
     {
         try
         {
+            // ThisServer может быть null, если ReloadDataFromDb ещё не завершился
+            // (или упал на регистрации сервера). Тогда фильтр по server_id
+            // невозможен — просто берём все cookie игрока без server-scoped замены.
+            var thisServerId = ThisServer?.Id;
+
             await using var conn = new MySqlConnection(DbConnectionString);
             await conn.OpenAsync();
 
@@ -2002,7 +2035,7 @@ public class AdminApi : IIksAdminApi
             {
                 if (!cookies.TryAdd(cookie.Key, cookie))
                 {
-                    if (cookie.ServerId == ThisServer.Id)
+                    if (thisServerId != null && cookie.ServerId == thisServerId)
                         cookies[cookie.Key] = cookie;
                 }
             }
