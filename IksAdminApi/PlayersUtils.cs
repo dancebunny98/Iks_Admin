@@ -56,20 +56,20 @@ public static class PlayersUtils
     }
     public static CCSPlayerController? GetControllerByUid(uint userId)
     {
-        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && x.Connected == PlayerConnectedState.PlayerConnected && x.UserId == userId);
+        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && x.UserId == userId);
     }
     public static CCSPlayerController? GetControllerByName(string name, bool ignoreRegistry = false)
     {
-        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && x.Connected == PlayerConnectedState.PlayerConnected && (ignoreRegistry ? x.PlayerName.ToLower().Contains(name) : x.PlayerName.Contains(name)));
+        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && (ignoreRegistry ? x.PlayerName.ToLower().Contains(name) : x.PlayerName.Contains(name)));
     }
     public static CCSPlayerController? GetControllerByIp(string ip)
     {
-        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && x.AuthorizedSteamID != null && x.Connected == PlayerConnectedState.PlayerConnected && x.GetIp() == ip);
+        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && x.AuthorizedSteamID != null && x.GetIp() == ip);
     }
     public static List<CCSPlayerController> GetOnlinePlayers(bool includeBots = false)
     {
         if (includeBots)
-            return Utilities.GetPlayers().Where(x => x != null && x.IsValid && x.Connected == PlayerConnectedState.PlayerConnected).ToList();
-        return Utilities.GetPlayers().Where(x => x != null && x.IsValid && !x.IsBot && x.AuthorizedSteamID != null && x.Connected == PlayerConnectedState.PlayerConnected).ToList();
+            return Utilities.GetPlayers().Where(x => x != null && x.IsValid).ToList();
+        return Utilities.GetPlayers().Where(x => x != null && x.IsValid && !x.IsBot && x.AuthorizedSteamID != null).ToList();
     }
 }
