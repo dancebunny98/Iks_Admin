@@ -13,6 +13,6 @@
     <AssemblyVersion>$(PluginVersion).0</AssemblyVersion>
     <FileVersion>$(PluginVersion).$(BuildNumber)</FileVersion>
     <InformationalVersion>$(PluginVersion)+build.$(BuildNumber)</InformationalVersion>
-    <NoWarn>$(NoWarn);CS0067;CS0168;CS0414;CS8601;CS8602;CS8603;CS8604;CS8614;CS8618;CS8714</NoWarn>
+    <NoWarn>$(NoWarn);CS0067;CS0168;CS0414;CS0619;CS8601;CS8602;CS8603;CS8604;CS8614;CS8618;CS8714</NoWarn>
   </PropertyGroup>
 </Project>
