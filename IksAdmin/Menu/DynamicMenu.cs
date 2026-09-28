@@ -59,6 +59,7 @@ public class DynamicMenu : IDynamicMenu
         ");
 
         IMenu menu = default!;
+#pragma warning disable CS0619 // MenuManagerApi exposes these methods for the installed WASD compatibility API.
         switch ((int)Type)
         {
             case -1: // [MM]
@@ -80,6 +81,7 @@ public class DynamicMenu : IDynamicMenu
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
         }
+#pragma warning restore CS0619
 
         menu.PostSelectAction = PostSelectAction;
         
