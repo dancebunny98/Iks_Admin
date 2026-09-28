@@ -59,11 +59,10 @@ public class DynamicMenu : IDynamicMenu
         ");
 
         IMenu menu = default!;
-#pragma warning disable CS0619 // MenuManagerApi exposes these methods for the installed WASD compatibility API.
         switch ((int)Type)
         {
             case -1: // [MM]
-                menu = Main.MenuApi!.NewMenu(MenuTitle(player));
+                menu = CreateMenu(MenuTitle(player));
                 break;
             case 0:
                 menu = new ChatMenu(MenuTitle(player));
@@ -75,13 +74,12 @@ public class DynamicMenu : IDynamicMenu
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
             case 3: // [MM]
-                menu = Main.MenuApi!.NewMenuForcetype(MenuTitle(player), (MenuManager.MenuType)Type);
+                menu = CreateMenuForType(MenuTitle(player), (MenuManager.MenuType)Type);
                 break;
             default:
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
         }
-#pragma warning restore CS0619
 
         menu.PostSelectAction = PostSelectAction;
         
@@ -206,6 +204,27 @@ public class DynamicMenu : IDynamicMenu
         Main.AdminApi.OnMenuOpenPost(player, this, menu);
         Options = oldOptions;
 
+    }
+
+    private static IMenu CreateMenu(string title)
+    {
+        var method = typeof(IMenuApi).GetMethod("NewMenu", new[]
+        {
+            typeof(string),
+            typeof(Action<CCSPlayerController>)
+        });
+        return (IMenu)method!.Invoke(Main.MenuApi, new object?[] { title, null })!;
+    }
+
+    private static IMenu CreateMenuForType(string title, MenuManager.MenuType type)
+    {
+        var method = typeof(IMenuApi).GetMethod("NewMenuForcetype", new[]
+        {
+            typeof(string),
+            typeof(MenuManager.MenuType),
+            typeof(Action<CCSPlayerController>)
+        });
+        return (IMenu)method!.Invoke(Main.MenuApi, new object?[] { title, type, null })!;
     }
 
     private string MenuTitle(CCSPlayerController player)
