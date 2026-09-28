@@ -30,7 +30,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var comms = await conn.QueryAsync<PlayerComm>(SelectComm + @"
                 where deleted_at is null
                 and steam_id = @steamId
@@ -52,7 +52,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var comms = (await conn.QueryAsync<PlayerComm>($@"
                 {SelectComm}
                 where deleted_at is null
@@ -73,7 +73,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var comms = (await conn.QueryAsync<PlayerComm>($@"
                 {SelectComm}
                 where deleted_at is null
@@ -93,7 +93,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var comms = (await conn.QueryAsync<PlayerComm>($@"
                 {SelectComm}
                 where deleted_at is null
@@ -113,7 +113,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var comms = (await conn.QueryAsync<PlayerComm>($@"
                 {SelectComm}
                 where deleted_at is null
@@ -136,7 +136,7 @@ public static class DBComms
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             punishment.SetEndAt();
             var id = await conn.QuerySingleAsync<int>(@"
                 insert into iks_comms
@@ -177,7 +177,7 @@ public static class DBComms
         {
             if (!CanUnComm(admin, comm)) return new DBResult(comm.Id, 2, "admin can't do this");
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_comms set 
                 unbanned_by = @adminId, 

@@ -6,7 +6,7 @@ public class ServerModel
 {
     // Длины колонок в iks_servers. Держать синхронно с SQL-миграцией:
     //   ALTER TABLE iks_servers MODIFY name VARCHAR(255) NOT NULL;
-    //   ALTER TABLE iks_servers MODIFY ip   VARCHAR(64)  NOT NULL;
+    //   ALTER TABLE iks_servers MODIFY ip   VARCHAR(32)  NOT NULL;
     //   ALTER TABLE iks_servers MODIFY rcon VARCHAR(128) NULL;
     //
     // Обрезка в сеттерах — вторая линия защиты после Trunc в DBServers.cs.
@@ -14,7 +14,7 @@ public class ServerModel
     // из другого модуля или из будущего кода), и name из конфига окажется
     // длиннее колонки.
     public const int MaxNameLen = 255;
-    public const int MaxIpLen   = 64;
+    public const int MaxIpLen   = 32;
     public const int MaxRconLen = 128;
 
     public int Id { get; set; }

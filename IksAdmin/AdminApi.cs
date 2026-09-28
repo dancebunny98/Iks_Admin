@@ -210,13 +210,31 @@ public class AdminApi : IIksAdminApi
         Localizer = localizer;
         ModuleDirectory = moduleDirectory;
         DbConnectionString = builder.ConnectionString;
+        _ = DB.StartHealthCheckAsync();
         Server.NextFrame(() =>
         {
-            Task.Run(async () => {
-                await ReloadDataFromDb();
-            });
+            _ = Task.Run(ReloadDataUntilReadyAsync);
         });
         
+    }
+
+    private async Task ReloadDataUntilReadyAsync()
+    {
+        var attempt = 0;
+        while (true)
+        {
+            try
+            {
+                await ReloadDataFromDb();
+                return;
+            }
+            catch (Exception ex)
+            {
+                attempt++;
+                AdminUtils.LogError($"Database initialization failed (attempt {attempt}). Retrying in 5 seconds: {ex.Message}");
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+        }
     }
 
     public void ReloadConfigs()
@@ -2014,7 +2032,7 @@ public class AdminApi : IIksAdminApi
             var thisServerId = ThisServer?.Id;
 
             await using var conn = new MySqlConnection(DbConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var result = await conn.QueryAsync<Cookie>(@"
         select 
@@ -2064,7 +2082,7 @@ public class AdminApi : IIksAdminApi
         Task.Run(async () =>
         {
             await using var conn = new MySqlConnection(DbConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             await conn.ExecuteAsync(@"
             delete from iks_cookies where steam_id = @steamId and cookie_key = @key and server_id = @serverId;

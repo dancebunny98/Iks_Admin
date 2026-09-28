@@ -8,7 +8,7 @@ namespace WithDynamicEvent;
 public class Main : AdminModule
 {
     public override string ModuleName => "WithDynamicEvent";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks__";
 
     public string? ReplaceReason = null;

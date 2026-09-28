@@ -7,23 +7,24 @@ namespace IksAdmin;
 public static class DB
 {
     public static string ConnectionString { get; set; } = string.Empty;
+    private static readonly CancellationTokenSource HealthCancellation = new();
 
     public static async Task Init()
     {
         try
         {
             await using var conn = new MySqlConnection(ConnectionString);
-            await conn.OpenAsync();
+            await OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 create table if not exists iks_servers(
                     id int not null unique,
                     ip varchar(32) not null comment 'ip:port',
-                    name varchar(64) not null,
+                    name varchar(255) not null,
                     rcon varchar(128) default null,
                     created_at int not null,
                     updated_at int not null,
                     deleted_at int default null
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 create table if not exists iks_groups(
                     id int not null auto_increment primary key,
                     name varchar(64) not null unique,
@@ -138,6 +139,14 @@ public static class DB
 "
                 );
 
+            // Нормализуем размеры полей старых установок под актуальную схему.
+            // Имя сервера из game конфигурации может быть длиннее 64 символов.
+            await conn.ExecuteAsync(@"
+                ALTER TABLE iks_servers
+                    MODIFY name VARCHAR(255) NOT NULL,
+                    MODIFY ip VARCHAR(32) NOT NULL,
+                    MODIFY rcon VARCHAR(128) NULL;");
+
         if (await conn.QuerySingleAsync<int>(@"select count(*) from iks_admins") == 0)
         {
             await conn.QueryAsync(@"
@@ -151,6 +160,78 @@ public static class DB
         {
             AdminUtils.LogError(e.ToString());
             throw;
+        }
+    }
+
+    public static Task StartHealthCheckAsync()
+    {
+        _ = Task.Run(HealthCheckLoopAsync);
+        return Task.CompletedTask;
+    }
+
+    public static async Task<bool> IsConnectionHealthyAsync()
+    {
+        try
+        {
+            await using var conn = new MySqlConnection(ConnectionString);
+            await OpenConnectionWithRetryAsync(conn, 1);
+            await using var command = new MySqlCommand("SELECT 1", conn);
+            await command.ExecuteScalarAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AdminUtils.LogError($"Database health check failed: {ex.Message}");
+            return false;
+        }
+    }
+
+    public static async Task OpenConnectionWithRetryAsync(MySqlConnection connection, int maxAttempts = 5)
+    {
+        Exception? lastError = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                if (connection.State != System.Data.ConnectionState.Open)
+                    await connection.OpenAsync();
+                return;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+                if (attempt < maxAttempts)
+                    await Task.Delay(TimeSpan.FromMilliseconds(Math.Min(5000, 250 * attempt)), HealthCancellation.Token);
+            }
+        }
+
+        throw lastError ?? new InvalidOperationException("Could not connect to MySQL.");
+    }
+
+    private static async Task HealthCheckLoopAsync()
+    {
+        while (!HealthCancellation.IsCancellationRequested)
+        {
+            try
+            {
+                if (!await IsConnectionHealthyAsync())
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(5), HealthCancellation.Token);
+                    continue;
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(15), HealthCancellation.Token);
+            }
+            catch (OperationCanceledException) when (HealthCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                AdminUtils.LogError($"MySQL unavailable. Retrying in 5 seconds: {ex.Message}");
+                try { await Task.Delay(TimeSpan.FromSeconds(5), HealthCancellation.Token); }
+                catch (OperationCanceledException) { return; }
+            }
         }
     }
 }

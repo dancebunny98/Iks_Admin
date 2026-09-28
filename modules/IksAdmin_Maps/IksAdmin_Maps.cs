@@ -64,7 +64,7 @@ public class MapsConfig : BasePluginConfig
 public class Main : AdminModule, IPluginConfig<MapsConfig>
 {
     public override string ModuleName => "IksAdmin_Maps";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks__ modules";
 
     public MapsConfig Config { get; set; } = new();

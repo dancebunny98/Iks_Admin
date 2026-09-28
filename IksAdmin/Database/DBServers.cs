@@ -8,10 +8,10 @@ public static class DBServers
 {
     // Реальные длины колонок в БД (с запасом). Держи синхронно с SQL-миграцией:
     //   ALTER TABLE iks_servers MODIFY name VARCHAR(255) NOT NULL;
-    //   ALTER TABLE iks_servers MODIFY ip   VARCHAR(64)  NOT NULL;
+    //   ALTER TABLE iks_servers MODIFY ip   VARCHAR(32)  NOT NULL;
     //   ALTER TABLE iks_servers MODIFY rcon VARCHAR(128) NULL;
     private const int MaxNameLen = 255;
-    private const int MaxIpLen   = 64;
+    private const int MaxIpLen   = 32;
     private const int MaxRconLen = 128;
 
     private static string Trunc(string? s, int max)
@@ -33,7 +33,7 @@ public static class DBServers
         {
             AdminUtils.LogDebug($"Add server to base... id={server.Id} ip={ip} name_len={name.Length}");
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var existingServer = await Get(server.Id);
             if (existingServer != null)
@@ -68,7 +68,7 @@ public static class DBServers
         {
             AdminUtils.LogDebug("Server update...");
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_servers set
                 ip = @ip,
@@ -99,7 +99,7 @@ public static class DBServers
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var server = await conn.QueryFirstOrDefaultAsync<ServerModel>(@"
                 select
@@ -130,7 +130,7 @@ public static class DBServers
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var servers = (await conn.QueryAsync<ServerModel>(@"
                 select

@@ -51,7 +51,7 @@ public class VipGiveConfig : BasePluginConfig
 public class Main : AdminModule, IPluginConfig<VipGiveConfig>
 {
     public override string ModuleName => "IksAdmin_VipGive";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks__ modules";
 
     public VipGiveConfig Config { get; set; } = new();

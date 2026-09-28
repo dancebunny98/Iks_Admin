@@ -158,7 +158,7 @@ public class CustomMenusConfig : BasePluginConfig
 public class Main : AdminModule, IPluginConfig<CustomMenusConfig>
 {
     public override string ModuleName => "IksAdmin_CustomMenus";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks__ modules";
 
     public CustomMenusConfig Config { get; set; } = new();

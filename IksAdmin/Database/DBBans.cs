@@ -51,7 +51,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ban = await conn.QueryFirstOrDefaultAsync<PlayerBan>(SelectBans + @"
                 where deleted_at is null
                 and steam_id = @steamId
@@ -84,7 +84,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var bans = (await conn.QueryAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -113,7 +113,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var bans = (await conn.QueryAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -141,7 +141,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ban = await conn.QueryFirstOrDefaultAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -172,7 +172,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var bans = (await conn.QueryAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -200,7 +200,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var bans = (await conn.QueryAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -228,7 +228,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var bans = (await conn.QueryAsync<PlayerBan>($@"
                 {SelectBans}
                 where deleted_at is null
@@ -252,7 +252,7 @@ public static class DBBans
         {
             AdminUtils.LogDebug("Ban db bans 1 ");
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             punishment.SetEndAt();
             AdminUtils.LogDebug("Ban db bans 2 ");
             var id = await conn.QuerySingleAsync<int>(@"
@@ -293,7 +293,7 @@ public static class DBBans
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_bans set 
                 unbanned_by = @adminId, 

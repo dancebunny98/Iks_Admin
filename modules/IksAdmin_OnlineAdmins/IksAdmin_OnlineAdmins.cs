@@ -7,7 +7,7 @@ namespace IksAdmin_OnlineAdmins;
 public class Main : AdminModule
 {
     public override string ModuleName => "IksAdmin_OnlineAdmins";
-    public override string ModuleVersion => "1.0.0";
+    public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks__ modules";
 
     // "info.online_admins" - право по умолчанию "*", то есть команда доступна

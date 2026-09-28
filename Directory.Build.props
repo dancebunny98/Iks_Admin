@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <PluginVersion Condition="'$(PluginVersion)' == ''">4.0.0</PluginVersion>
+    <BuildNumber Condition="'$(BuildNumber)' == ''">0</BuildNumber>
+    <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == ''">net10.0</TargetFrameworkVersion>
+    <CounterStrikeSharpVersion Condition="'$(CounterStrikeSharpVersion)' == ''">1.0.376</CounterStrikeSharpVersion>
+    <DapperVersion Condition="'$(DapperVersion)' == ''">2.1.79</DapperVersion>
+    <MySqlConnectorVersion Condition="'$(MySqlConnectorVersion)' == ''">2.6.2</MySqlConnectorVersion>
+    <CoreRconVersion Condition="'$(CoreRconVersion)' == ''">5.4.2</CoreRconVersion>
+    <SteamWebApiVersion Condition="'$(SteamWebApiVersion)' == ''">5.0.0</SteamWebApiVersion>
+    <MicrosoftExtensionsVersion Condition="'$(MicrosoftExtensionsVersion)' == ''">10.0.0</MicrosoftExtensionsVersion>
+    <Version>$(PluginVersion).$(BuildNumber)</Version>
+    <AssemblyVersion>$(PluginVersion).0</AssemblyVersion>
+    <FileVersion>$(PluginVersion).$(BuildNumber)</FileVersion>
+    <InformationalVersion>$(PluginVersion)+build.$(BuildNumber)</InformationalVersion>
+    <NoWarn>$(NoWarn);CS0168;CS8601;CS8602;CS8603;CS8618</NoWarn>
+  </PropertyGroup>
+</Project>

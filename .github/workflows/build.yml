@@ -17,6 +17,7 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   CONFIGURATION: Release
+  BUILD_NUMBER: ${{ github.run_number }}
   # DLL-контракты, которые ДОЛЖНЫ приходить только из shared/<Имя>/ на сервере -
   # никогда не должны лежать копией внутри папки конкретного плагина/модуля, иначе
   # это два разных CLR-типа в разных AssemblyLoadContext, и capability-вызовы между
@@ -51,19 +52,26 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Read build metadata
+        id: metadata
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*<PluginVersion[^>]*>\([^<]*\)<\/PluginVersion>.*/\1/p' Directory.Build.props)
+          test -n "$version"
+          echo "plugin_version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Restore & build core projects
         id: core_build
-        continue-on-error: true
         run: |
           set -e
           # Собираем сначала IksAdminApi отдельно - её вывод идёт ТОЛЬКО в shared/
           # (см. Collect ниже). IksAdmin.csproj её тоже соберёт транзитивно при
           # своей сборке (нужно для компиляции), но Private=false в самом
           # IksAdmin.csproj не даст этой копии попасть в его bin/.
-          dotnet restore IksAdminApi/IksAdminApi.csproj
-          dotnet build IksAdminApi/IksAdminApi.csproj -c ${{ env.CONFIGURATION }} --no-restore
-          dotnet restore IksAdmin/IksAdmin.csproj
-          dotnet build IksAdmin/IksAdmin.csproj -c ${{ env.CONFIGURATION }} --no-restore
+          dotnet restore IksAdminApi/IksAdminApi.csproj -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
+          dotnet build IksAdminApi/IksAdminApi.csproj -c ${{ env.CONFIGURATION }} --no-restore -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
+          dotnet restore IksAdmin/IksAdmin.csproj -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
+          dotnet build IksAdmin/IksAdmin.csproj -c ${{ env.CONFIGURATION }} --no-restore -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
 
       - name: Collect core output
         if: steps.core_build.outcome == 'success'
@@ -73,7 +81,7 @@ jobs:
           # IksAdmin.csproj's ExportPluginFiles target уже разложил всё по местам:
           # bundle/plugins/IksAdmin (ядро + приватные зависимости + lang/configs/sortmenus)
           # и bundle/shared/IksAdminApi (если Private=false почему-то не сработал).
-          BUNDLE="IksAdmin/bin/${{ env.CONFIGURATION }}/net8.0/bundle"
+          BUNDLE="IksAdmin/bin/${{ env.CONFIGURATION }}/net10.0/bundle"
           if [ ! -d "$BUNDLE" ]; then
             echo "::error::$BUNDLE not found - ExportPluginFiles target didn't run or failed"
             exit 1
@@ -87,7 +95,7 @@ jobs:
           # (Private=false в IksAdmin.csproj обычно значит, что в его собственном
           # bundle/shared/ ничего не окажется - это ожидаемо, не ошибка).
           mkdir -p out/addons/counterstrikesharp/shared/IksAdminApi
-          BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net8.0"
+          BIN_API="IksAdminApi/bin/${{ env.CONFIGURATION }}/net10.0"
           cp "$BIN_API/IksAdminApi.dll" out/addons/counterstrikesharp/shared/IksAdminApi/
           [ -f "$BIN_API/IksAdminApi.pdb" ] && cp "$BIN_API/IksAdminApi.pdb" out/addons/counterstrikesharp/shared/IksAdminApi/ || true
 
@@ -110,7 +118,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: steps.core_build.outcome == 'success'
         with:
-          name: IksAdminCore-${{ github.sha }}
+          name: IksAdminCore-${{ steps.metadata.outputs.plugin_version }}+build.${{ env.BUILD_NUMBER }}
           path: out/
           if-no-files-found: error
 
@@ -149,11 +157,18 @@ jobs:
 
       - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
+
+      - name: Read build metadata
+        id: metadata
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*<PluginVersion[^>]*>\([^<]*\)<\/PluginVersion>.*/\1/p' Directory.Build.props)
+          test -n "$version"
+          echo "plugin_version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Restore & build
         id: build
-        continue-on-error: true
         run: |
           set -e
           PROJ="modules/${{ matrix.module }}/${{ matrix.module }}.csproj"
@@ -161,8 +176,8 @@ jobs:
             echo "::warning::$PROJ not found, skipping"
             exit 0
           fi
-          dotnet restore "$PROJ"
-          dotnet build "$PROJ" -c ${{ env.CONFIGURATION }} --no-restore
+          dotnet restore "$PROJ" -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
+          dotnet build "$PROJ" -c ${{ env.CONFIGURATION }} --no-restore -p:PluginVersion=${{ steps.metadata.outputs.plugin_version }} -p:BuildNumber=${{ env.BUILD_NUMBER }}
 
       - name: Collect output
         if: steps.build.outcome == 'success'
@@ -202,6 +217,6 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: steps.build.outcome == 'success'
         with:
-          name: ${{ matrix.module }}-${{ github.sha }}
+          name: ${{ matrix.module }}-${{ steps.metadata.outputs.plugin_version }}+build.${{ env.BUILD_NUMBER }}
           path: out/
           if-no-files-found: warn

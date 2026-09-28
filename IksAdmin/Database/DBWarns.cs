@@ -25,7 +25,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
@@ -45,7 +45,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
@@ -62,7 +62,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             int id = await conn.QuerySingleAsync<int>(@"
             insert into iks_admins_warns
@@ -94,7 +94,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             warn.UpdatedAt = AdminUtils.CurrentTimestamp();
             await conn.QueryAsync(@"
             update iks_admins_warns set
@@ -131,7 +131,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
@@ -152,7 +152,7 @@ public static class DBWarns
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}

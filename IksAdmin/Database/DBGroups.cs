@@ -20,7 +20,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var existingGroup = await GetGroup(group.Name);
             if (existingGroup != null)
             {
@@ -44,7 +44,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var group = await conn.QueryFirstOrDefaultAsync<Group>($@"
                 {GroupSelect}
                 where name = @groupName
@@ -64,7 +64,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var groups = (await conn.QueryAsync<Group>($@"
                 {GroupSelect}
             ")).ToList();
@@ -83,7 +83,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var id = await conn.QuerySingleAsync<int>(@"
                 insert into iks_groups
                 ( name, flags, immunity, comment)
@@ -113,7 +113,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_groups set 
                 name = @name,
@@ -145,7 +145,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_admins set group_id=null
                 where group_id = @groupId;
@@ -212,7 +212,7 @@ public static class DBGroups
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var limitations = (await conn.QueryAsync<GroupLimitation>(@"
                 select
                 id as id,

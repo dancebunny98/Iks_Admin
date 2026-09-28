@@ -41,7 +41,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             var adminsToServer = (await conn.QueryAsync<AdminToServer>(@"
             select
@@ -63,7 +63,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var existingAdmin = await GetAdmin(admin.SteamId, ignoreDeleted: false);
             if (existingAdmin != null)
             {
@@ -88,7 +88,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var existingAdmin = await GetAdminById(adminId);
             if (existingAdmin == null)
             {
@@ -120,7 +120,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var existingAdmin = await GetAdminById(adminId);
             if (existingAdmin == null)
             {
@@ -144,7 +144,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var existingAdmin = await GetAdminById(adminId);
             if (existingAdmin == null)
             {
@@ -180,7 +180,7 @@ public static class DBAdmins
             }
 
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ignoreDeletedString = ignoreDeleted ? "and deleted_at is null" : "";
             var admins = (await conn.QueryAsync<Admin>($@"
                 {AdminSelect}
@@ -213,7 +213,7 @@ public static class DBAdmins
             }
 
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ignoreDeletedString = ignoreDeleted ? "and deleted_at is null" : "";
             var admin = await conn.QueryFirstOrDefaultAsync<Admin>($@"
                 {AdminSelect}
@@ -235,7 +235,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ignoreDeletedString = ignoreDeleted ? "where deleted_at is null" : "";
             var admins = (await conn.QueryAsync<Admin>($@"
                 {AdminSelect}
@@ -256,7 +256,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             var ignoreDeletedString = ignoreDeleted ? "and deleted_at is null" : "";
             var admins = (await conn.QueryAsync<Admin>($@"
                 {AdminSelect}
@@ -278,7 +278,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
 
             // QuerySingleAsync<int> бросает InvalidOperationException, если
             // last_insert_id() не вернул ни одной строки (бывает при определённых
@@ -323,7 +323,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_admins set 
                 steam_id = @steamId,
@@ -376,7 +376,7 @@ public static class DBAdmins
         try
         {
             await using var conn = new MySqlConnection(DB.ConnectionString);
-            await conn.OpenAsync();
+            await DB.OpenConnectionWithRetryAsync(conn);
             await conn.QueryAsync(@"
                 update iks_admins set 
                 deleted_at = unix_timestamp()

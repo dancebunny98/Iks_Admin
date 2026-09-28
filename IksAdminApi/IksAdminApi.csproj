@@ -1,15 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>$(TargetFrameworkVersion)</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
 
   <ItemGroup>
-    <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.376"/>
-    <Reference Include="../RequirmentsApi/MenuManagerApi.dll"/>
+    <PackageReference Include="CounterStrikeSharp.Api" Version="$(CounterStrikeSharpVersion)"/>
+    <Reference Include="MenuManagerApi">
+      <HintPath>..\RequirmentsApi\MenuManagerApi.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>
