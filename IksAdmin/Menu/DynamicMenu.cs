@@ -62,7 +62,7 @@ public class DynamicMenu : IDynamicMenu
         switch ((int)Type)
         {
             case -1: // [MM]
-                menu = Main.MenuApi!.NewMenu(MenuTitle(player));
+                menu = Main.MenuApi!.NewMenu(MenuTitle(player), (MenuManager.MenuType)Main.MenuApi.GetMenuType(player));
                 break;
             case 0:
                 menu = new ChatMenu(MenuTitle(player));
@@ -74,7 +74,7 @@ public class DynamicMenu : IDynamicMenu
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
             case 3: // [MM]
-                menu = Main.MenuApi!.NewMenuForcetype(MenuTitle(player), (MenuManager.MenuType)Type);
+                menu = Main.MenuApi!.NewMenu(MenuTitle(player), (MenuManager.MenuType)Type);
                 break;
             default:
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
