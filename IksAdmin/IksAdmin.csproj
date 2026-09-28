@@ -11,9 +11,9 @@
   <ItemGroup>
     <PackageReference Include="CoreRcon" Version="5.4.2"/>
     <PackageReference Include="dapper" Version="2.1.79"/>
-    <PackageReference Include="mysqlconnector" Version="2.5.0"/>
+    <PackageReference Include="mysqlconnector" Version="2.6.2"/>
     <PackageReference Include="SteamWebAPI2" Version="5.0.0"/>
-    <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.342"/>
+    <PackageReference Include="CounterStrikeSharp.Api" Version="1.0.376"/>
 
     <!-- Private=false ОБЯЗАТЕЛЕН для обеих ссылок ниже: IksAdminApi.dll и MenuManagerApi.dll
          на сервере лежат в shared/, и ядро ДОЛЖНО резолвить их оттуда же, откуда их резолвят
