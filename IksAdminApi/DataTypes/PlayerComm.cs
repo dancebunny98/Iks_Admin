@@ -9,9 +9,17 @@ public class PlayerComm
 {
     public enum MuteTypes
     {
-        Mute = 0,
-        Gag = 1,
-        Silence = 2
+        /// <summary>Блокировка голосового чата.</summary>
+        MuteVoice = 0,
+        /// <summary>Блокировка текстового чата.</summary>
+        MuteChat = 1,
+        /// <summary>Блокировка голосового и текстового чата.</summary>
+        MuteAll = 2,
+
+        // Старые имена оставлены для совместимости с модулями и API.
+        Mute = MuteVoice,
+        Gag = MuteChat,
+        Silence = MuteAll
     }
     public int Id {get; set;}
     public string SteamId {get; set;}

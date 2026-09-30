@@ -106,15 +106,15 @@ public static class MenuCommsManage
     {
         var menu = _api.CreateMenu(Main.MenuId("cm_comm_select"), _localizer["MenuTitle.CM.SelectType"], backMenu: backMenu);
         
-        menu.AddMenuOption("mute", _localizer["MenuOption.CM.Mute"], (_, _) =>
+        menu.AddMenuOption("mutevoice", _localizer["MenuOption.CM.MuteVoice"], (_, _) =>
         {
             SelectPlayerForMute(caller, menu);
         }, viewFlags: _api.GetCurrentPermissionFlags("comms_manage.mute"));
-        menu.AddMenuOption("gag", _localizer["MenuOption.CM.Gag"], (_, _) => {
+        menu.AddMenuOption("mutechat", _localizer["MenuOption.CM.MuteChat"], (_, _) => {
             SelectPlayerForGag(caller, menu);
         }, viewFlags: _api.GetCurrentPermissionFlags("comms_manage.gag"));
         if (caller.HasPermissions("comms_manage.silence"))
-        menu.AddMenuOption("silence", _localizer["MenuOption.CM.Silence"], (_, _) => {
+        menu.AddMenuOption("muteall", _localizer["MenuOption.CM.MuteAll"], (_, _) => {
             SelectPlayerForSilence(caller, menu);
         }, viewFlags: _api.GetCurrentPermissionFlags("comms_manage.silence"));
         
@@ -227,7 +227,7 @@ public static class MenuCommsManage
                 {
                     OpenMuteTimeSelectMenu(caller, target, reason, menu);
                 } else {
-                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.Mute, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
+                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteVoice, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
                     if (MutesConfig.Config.BanOnAllServers) {
                         comm.ServerId = null;
                     }
@@ -275,7 +275,7 @@ public static class MenuCommsManage
                 {
                     OpenGagTimeSelectMenu(caller, target, reason, menu);
                 } else {
-                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.Gag, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
+                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteChat, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
                     if (GagsConfig.Config.BanOnAllServers) {
                         comm.ServerId = null;
                     }
@@ -322,7 +322,7 @@ public static class MenuCommsManage
                 {
                     OpenSilenceTimeSelectMenu(caller, target, reason, menu);
                 } else {
-                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.Silence, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
+                    var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteAll, reason.Text, (int)reason.Duration, serverId: _api.ThisServer.Id);
                     if (SilenceConfig.Config.BanOnAllServers) {
                         comm.ServerId = null;
                     }
@@ -343,7 +343,7 @@ public static class MenuCommsManage
         var config = MutesConfig.Config;
         var times = config.Times;
         var admin = caller.Admin()!;
-        var comm = new PlayerComm(target, 0, reason.Text, 0, serverId: _api.ThisServer.Id);
+        var comm = new PlayerComm(target, (int)PlayerComm.MuteTypes.MuteVoice, reason.Text, 0, serverId: _api.ThisServer.Id);
         if (MutesConfig.Config.BanOnAllServers) {
             comm.ServerId = null;
         }
@@ -399,7 +399,7 @@ public static class MenuCommsManage
         var config = GagsConfig.Config;
         var times = config.Times;
         var admin = caller.Admin()!;
-        var comm = new PlayerComm(target, PlayerComm.MuteTypes.Gag, reason.Text, 0, serverId: _api.ThisServer.Id);
+        var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteChat, reason.Text, 0, serverId: _api.ThisServer.Id);
         if (GagsConfig.Config.BanOnAllServers) {
             comm.ServerId = null;
         }
@@ -455,7 +455,7 @@ public static class MenuCommsManage
         var config = SilenceConfig.Config;
         var times = config.Times;
         var admin = caller.Admin()!;
-        var comm = new PlayerComm(target, PlayerComm.MuteTypes.Silence, reason.Text, 0, serverId: _api.ThisServer.Id);
+        var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteAll, reason.Text, 0, serverId: _api.ThisServer.Id);
         if (SilenceConfig.Config.BanOnAllServers) {
             comm.ServerId = null;
         }

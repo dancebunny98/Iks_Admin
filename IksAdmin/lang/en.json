@@ -89,6 +89,9 @@
     "MenuOption.CM.Mute" : "Mute",
     "MenuOption.CM.Gag" : "Gag",
     "MenuOption.CM.Silence" : "Silence",
+    "MenuOption.CM.MuteVoice" : "MuteVoice (voice)",
+    "MenuOption.CM.MuteChat" : "MuteChat (chat)",
+    "MenuOption.CM.MuteAll" : "MuteAll (chat + voice)",
     "MenuOption.CM.Remove" : "Remove Block",
     "MenuOption.CM.RemoveOffline" : "Remove Block (offline)",
 

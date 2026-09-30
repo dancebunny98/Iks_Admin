@@ -89,6 +89,9 @@
     "MenuOption.CM.Mute" : "Мут",
     "MenuOption.CM.Gag" : "Гаг",
     "MenuOption.CM.Silence" : "Все",
+    "MenuOption.CM.MuteVoice" : "MuteVoice (голос)",
+    "MenuOption.CM.MuteChat" : "MuteChat (чат)",
+    "MenuOption.CM.MuteAll" : "MuteAll (чат + голос)",
     "MenuOption.CM.Remove" : "Видалити блокування",
     "MenuOption.CM.RemoveOffline" : "Видалити блокування (офлайн)",
 
