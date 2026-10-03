@@ -1,6 +1,7 @@
 /.idea
 bin/
 obj/
+build-deps/
 
 _ReSharper*/
 *.[Rr]e[Ss]harper

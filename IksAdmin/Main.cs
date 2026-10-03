@@ -21,7 +21,7 @@ public class Main : BasePlugin
     public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "4.0.0"}";
     public override string ModuleAuthor => "iks [Discord: iks__]";
 
-    public static IMenuApi MenuApi = null!;
+    public static IMenuApi? MenuApi;
     private static readonly PluginCapability<IMenuApi?> MenuCapability = new("menu:nfcore");   
     public static AdminApi AdminApi = null!;
     private readonly PluginCapability<IIksAdminApi> _pluginCapability  = new("iksadmin:core");
@@ -877,9 +877,15 @@ public class Main : BasePlugin
     
     public override void OnAllPluginsLoaded(bool hotReload)
     {
+        ResolveMenuApi();
+        AddTimer(2.0f, ResolveMenuApi);
+    }
+
+    private static void ResolveMenuApi()
+    {
         try
         {
-            MenuApi = MenuCapability.Get()!;
+            MenuApi = MenuCapability.Get();
             if (MenuApi == null)
             {
                 AdminUtils.LogDebug("Start without Menu Manager");
@@ -887,9 +893,9 @@ public class Main : BasePlugin
         }
         catch (Exception)
         {
+            MenuApi = null;
             AdminUtils.LogDebug("Start without Menu Manager");
         }
-        
     }
 
     [GameEventHandler]

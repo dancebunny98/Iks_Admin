@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <!-- IksAdminApi лежит в этом же репозитории, в корне: /IksAdminApi/
-         (не submodule, обычная папка вместе с /IksAdmin/ и /RequirmentsApi/).
+         (не submodule, обычная папка вместе с /IksAdmin/).
          Private=false: IksAdminApi.dll на сервере лежит в shared/IksAdminApi/ - модуль
          должен грузить именно её, а не свою копию, иначе это будут два разных типа
          в разных AssemblyLoadContext и обращения к Api/AdminModule сломаются. -->

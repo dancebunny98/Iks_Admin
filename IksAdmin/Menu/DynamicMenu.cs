@@ -208,23 +208,12 @@ public class DynamicMenu : IDynamicMenu
 
     private static IMenu CreateMenu(string title)
     {
-        var method = typeof(IMenuApi).GetMethod("NewMenu", new[]
-        {
-            typeof(string),
-            typeof(Action<CCSPlayerController>)
-        });
-        return (IMenu)method!.Invoke(Main.MenuApi, new object?[] { title, null })!;
+        return Main.MenuApi?.GetMenu(title, null, null) ?? new ChatMenu(title);
     }
 
     private static IMenu CreateMenuForType(string title, MenuManager.MenuType type)
     {
-        var method = typeof(IMenuApi).GetMethod("NewMenuForcetype", new[]
-        {
-            typeof(string),
-            typeof(MenuManager.MenuType),
-            typeof(Action<CCSPlayerController>)
-        });
-        return (IMenu)method!.Invoke(Main.MenuApi, new object?[] { title, type, null })!;
+        return Main.MenuApi?.GetMenuForcetype(title, type, null, null) ?? new ChatMenu(title);
     }
 
     private string MenuTitle(CCSPlayerController player)
@@ -256,7 +245,9 @@ public class DynamicMenu : IDynamicMenu
     }
     public MenuType GetThisMenuType(CCSPlayerController player)
     {
-        var menuType = Type != MenuType.Default ? Type : (MenuType)Main.MenuApi!.GetMenuType(player);
+        var menuType = Type != MenuType.Default
+            ? Type
+            : Main.MenuApi == null ? MenuType.ChatMenu : (MenuType)Main.MenuApi.GetMenuType(player);
         return menuType;
     }
 
@@ -391,4 +382,3 @@ public class DynamicMenuOption : IDynamicMenuOption
         ");
     }
 }
-

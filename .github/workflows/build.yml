@@ -7,7 +7,6 @@ on:
       - 'modules/**'
       - 'IksAdmin/**'
       - 'IksAdminApi/**'
-      - 'RequirmentsApi/**'
       - '.github/workflows/build.yml'
   pull_request:
     branches: [ main ]
@@ -24,7 +23,7 @@ env:
   # плагинами (ядро IksAdmin <-> модули, любой модуль <-> VIPCore) ломаются.
   # Используется шагом "Strip shared-contract DLLs" ниже как доп. страховка поверх
   # Private=false в .csproj (тот флаг не всегда транзитивно наследуется).
-  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll CS2ScreenMenuAPI.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
+  SHARED_DLLS: "VipCoreApi.dll MenuManagerApi.dll IksAdminApi.dll LevelsRanksApi.dll FakeRanksApi.dll AnyBaseLib.dll PlayerSettingsApi.dll"
 
 jobs:
   no-tracked-build-output:
@@ -51,6 +50,18 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+
+      - name: Download shared API contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-deps
+          mm_url=$(curl -fsSL https://api.github.com/repos/RRimmer/PanoramaMenuManagerCS2/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n1)
+          vip_url=$(curl -fsSL https://api.github.com/repos/dancebunny98/cs2-VIPCorefork/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n1)
+          curl -fsSL "$mm_url" -o /tmp/menumanager.zip
+          curl -fsSL "$vip_url" -o /tmp/vipcore.zip
+          unzip -j -o /tmp/menumanager.zip '*/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll' -d build-deps
+          unzip -j -o /tmp/vipcore.zip '*/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll' -d build-deps
 
       - name: Read build metadata
         id: metadata
@@ -137,10 +148,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Download shared API contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-deps
+          mm_url=$(curl -fsSL https://api.github.com/repos/RRimmer/PanoramaMenuManagerCS2/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n1)
+          vip_url=$(curl -fsSL https://api.github.com/repos/dancebunny98/cs2-VIPCorefork/releases/latest | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n1)
+          curl -fsSL "$mm_url" -o /tmp/menumanager.zip
+          curl -fsSL "$vip_url" -o /tmp/vipcore.zip
+          unzip -j -o /tmp/menumanager.zip '*/counterstrikesharp/shared/MenuManagerApi/MenuManagerApi.dll' -d build-deps
+          unzip -j -o /tmp/vipcore.zip '*/counterstrikesharp/shared/VipCoreApi/VipCoreApi.dll' -d build-deps
+
       - name: Sanity check - required local projects present
         run: |
           MISSING=0
-          for PROJ in "IksAdminApi/IksAdminApi.csproj" "RequirmentsApi/MenuManagerApi.dll" "RequirmentsApi/VipCoreApi.dll"; do
+          for PROJ in "IksAdminApi/IksAdminApi.csproj" "build-deps/MenuManagerApi.dll" "build-deps/VipCoreApi.dll"; do
             if [ ! -f "$PROJ" ]; then
               echo "::error::$PROJ not found at repo root."
               MISSING=1
@@ -149,7 +172,7 @@ jobs:
             fi
           done
           if [ "$MISSING" = "1" ]; then
-            echo "Expected layout: /IksAdmin, /IksAdminApi, /RequirmentsApi (incl. MenuManagerApi.dll + VipCoreApi.dll), /modules"
+            echo "Expected layout: /IksAdmin, /IksAdminApi, /build-deps (downloaded API contracts), /modules"
             echo "--- repo root listing ---"
             ls -la
             exit 1

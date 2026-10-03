@@ -10,7 +10,7 @@
   <ItemGroup>
     <PackageReference Include="CounterStrikeSharp.Api" Version="$(CounterStrikeSharpVersion)"/>
     <Reference Include="MenuManagerApi">
-      <HintPath>..\RequirmentsApi\MenuManagerApi.dll</HintPath>
+      <HintPath>$(MenuManagerApiPath)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

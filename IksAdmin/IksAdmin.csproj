@@ -27,7 +27,7 @@
       <Private>false</Private>
     </ProjectReference>
     <Reference Include="MenuManagerApi">
-      <HintPath>..\RequirmentsApi\MenuManagerApi.dll</HintPath>
+      <HintPath>$(MenuManagerApiPath)</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>
