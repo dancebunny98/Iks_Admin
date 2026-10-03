@@ -380,7 +380,7 @@ public class AdminApi : IIksAdminApi
 
     public IDynamicMenu CreateMenu(string id, string title, MenuType? type = null, MenuColors titleColor = MenuColors.Default, PostSelectAction postSelectAction = PostSelectAction.Nothing, Action<CCSPlayerController>? backAction = null, IDynamicMenu? backMenu = null)
     {
-        if (type == null) type = (MenuType)Config.MenuType;
+        if (type == null) type = MenuType.Default;
         return new DynamicMenu(id, title, (MenuType)type, titleColor, postSelectAction, backAction, backMenu);
     }
     public IDynamicMenuOption CreateMenuOption(string id, string title, Action<CCSPlayerController, IDynamicMenuOption> onExecute, MenuColors? color = null, bool disabled = false, string viewFlags = "*")

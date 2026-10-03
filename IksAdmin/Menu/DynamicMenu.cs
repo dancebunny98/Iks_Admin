@@ -23,7 +23,7 @@ public class DynamicMenu : IDynamicMenu
     public bool ExitButton { get; set; }
     public List<IDynamicMenuOption> Options {get; set;} = new();
     private bool _backOptionRendered = false;
-    public DynamicMenu(string id, string title, MenuType type = (MenuType)3, MenuColors titleColor = MenuColors.Default, PostSelectAction postSelectAction = PostSelectAction.Nothing, Action<CCSPlayerController>? backAction = null, IDynamicMenu? backMenu = null)
+    public DynamicMenu(string id, string title, MenuType type = MenuType.Default, MenuColors titleColor = MenuColors.Default, PostSelectAction postSelectAction = PostSelectAction.Nothing, Action<CCSPlayerController>? backAction = null, IDynamicMenu? backMenu = null)
     {
         Id = id;
         Title = title;
@@ -213,13 +213,6 @@ public class DynamicMenu : IDynamicMenu
 
     private static IMenu CreateMenuForType(string title, MenuManager.MenuType type)
     {
-        // MenuManagerApi 1.1+ uses PanoramaWasdMenu (6) for the WASD UI.
-        // The public Iks_Admin enum keeps ButtonMenu (3) for compatibility.
-        if (type == MenuManager.MenuType.ButtonMenu)
-        {
-            type = MenuManager.MenuType.PanoramaWasdMenu;
-        }
-
         return Main.MenuApi?.GetMenuForcetype(title, type, null, null) ?? new ChatMenu(title);
     }
 

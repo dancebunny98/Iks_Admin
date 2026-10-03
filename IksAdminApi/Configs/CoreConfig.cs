@@ -25,7 +25,6 @@ public class CoreConfig : PluginCFG<CoreConfig>, IPluginCFG
     public bool AdvancedKick {get; set;} = true;
     public int AdvancedKickTime {get; set;} = 5;
     public bool DebugMode { get; set; } = true;
-    public int MenuType { get; set; } = 3; // -1 = player/default | 0 = ChatMenu | 1 = ConsoleMenu | 2 = CenterHtml | 3 = PanoramaMenuManager
     public Dictionary<string, string> PermissionReplacement { get; set; } = new Dictionary<string, string>()
     {
         {"admins_manage_add", "z"} // Пример замены права управления админами на флаг z (Ну он и так z по дефолту, ну так что бы знали)

@@ -23,7 +23,6 @@
   "AdvancedKick": true, // Показывать ли табличку перед киком игрока с сервера (Кик, Бан)
   "AdvancedKickTime": 5, // Время через которое игрока кикнет
   "DebugMode": false, // Дебаг мод, не включайте если не знаете для чего (МНОГО СПАМА В КОНСОЛЬ)
-  "MenuType": 3, // -1 = player/default | 0 = ChatMenu | 1 = ConsoleMenu | 2 = CenterHtml | 3 = PanoramaMenuManager
   "PermissionReplacement": { // Замена дефолтных флагов прав
     // "admins_manage.list": "l" // в таком случае команду css_am_list можно использовать с флагом l
   },
