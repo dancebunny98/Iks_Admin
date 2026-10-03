@@ -147,6 +147,7 @@ jobs:
           - IksAdmin_VipGive
           - IksAdmin_Maps
           - IksAdmin_CustomMenus
+          - IksAdmin_DiscordPunishments
     steps:
       - uses: actions/checkout@v5
 
@@ -229,6 +230,13 @@ jobs:
           if [ -d "$PROJDIR/lang" ]; then
             mkdir -p "$OUT/lang"
             cp "$PROJDIR"/lang/*.json "$OUT/lang"/ 2>/dev/null || true
+          fi
+
+          # IPluginConfig loads this file from configs/plugins/<module>/<module>.json.
+          if [ -f "$PROJDIR/config.json" ]; then
+            CONFIG_OUT="out/addons/counterstrikesharp/configs/plugins/$MOD"
+            mkdir -p "$CONFIG_OUT"
+            cp "$PROJDIR/config.json" "$CONFIG_OUT/$MOD.json"
           fi
 
           find out -type f
