@@ -213,6 +213,13 @@ public class DynamicMenu : IDynamicMenu
 
     private static IMenu CreateMenuForType(string title, MenuManager.MenuType type)
     {
+        // MenuManagerApi 1.1+ uses PanoramaWasdMenu (6) for the WASD UI.
+        // The public Iks_Admin enum keeps ButtonMenu (3) for compatibility.
+        if (type == MenuManager.MenuType.ButtonMenu)
+        {
+            type = MenuManager.MenuType.PanoramaWasdMenu;
+        }
+
         return Main.MenuApi?.GetMenuForcetype(title, type, null, null) ?? new ChatMenu(title);
     }
 

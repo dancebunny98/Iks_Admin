@@ -71,7 +71,7 @@ public class Main : BasePlugin
         {
             MessageOnTick();
         });
-        RegisterListener<Listeners.OnClientAuthorized>(OnAuthorized);
+        RegisterListener<Listeners.OnClientAuthorized>((slot, steamId) => OnAuthorized(slot, steamId, 0));
         RegisterListener<Listeners.OnClientVoice>(OnClientVoice);
         AddTimer(5, () => {
             foreach (var comm in AdminApi.Comms.ToArray())
@@ -206,11 +206,17 @@ public class Main : BasePlugin
         }
     }
 
-    private void OnAuthorized(int playerSlot, SteamID steamId)
+    private void OnAuthorized(int playerSlot, SteamID steamId, int attempt)
     {
         var steamId64 = steamId.SteamId64.ToString();
         var uSteamId64 = steamId.SteamId64;
         var player = Utilities.GetPlayerFromSlot(playerSlot);
+        if (player is null || !player.IsValid)
+        {
+            if (attempt < 20)
+                AddTimer(0.25f, () => OnAuthorized(playerSlot, steamId, attempt + 1));
+            return;
+        }
         var disconnected = AdminApi.DisconnectedPlayers.FirstOrDefault(x => x.SteamId == steamId64);
         AdminApi.DisconnectedPlayers.Remove(disconnected!);
         var ip = player!.GetIp();
