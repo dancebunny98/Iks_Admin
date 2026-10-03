@@ -284,7 +284,7 @@ public class Main : BasePlugin
     {
         if (player == null) return HookResult.Continue;
 
-        if (player.AuthorizedSteamID == null && !player.IsBot)
+        if (player.AuthorizedSteamID == null && player.SteamID == 0 && !player.IsBot)
         {
             Logger.LogError("Player is not authorized and not bot in OnSay command listener.");
             return HookResult.Continue;
