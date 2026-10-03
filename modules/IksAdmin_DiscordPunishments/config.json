@@ -1,0 +1,74 @@
+{
+  // Общие параметры. Enabled=false временно отключает отправку без выгрузки плагина.
+  "General": { "Enabled": true, "Debug": false, "TimeZone": "UTC", "Language": "ru" },
+  // ServerName и ServerId берутся из configs/plugins/IksAdmin/core.json.
+  // Здесь их дублировать не нужно.
+
+  // Default используется для всех событий. Чтобы отправлять всё одного сервера в один канал,
+  // заполните только Default, а Ban/Kick/Mute и остальные списки оставьте пустыми.
+  "Webhooks": {
+    "Default": "https://discord.com/api/webhooks/1555912841280757771/jHAdfdBcyStb-KQznWEsprs6IDcKhgIQGF-L1yvFWZgyAE1Pq9iTTlNyMKhyqH5sjFO0",
+    "Username": "Журнал наказаний",
+    "AvatarUrl": "",
+    "ThreadName": "",
+    "WaitForPrevious": true,
+    "Ban": [],
+    "Unban": [],
+    "Kick": [],
+    "Mute": [],
+    "Unmute": [],
+    "Gag": [], "Ungag": [], "Silence": [], "Unsilence": []
+  },
+
+  // Каждый тип события можно отключить отдельно.
+  "Events": { "Ban": true, "Unban": true, "Kick": true, "Mute": true, "Unmute": true, "Gag": true, "Ungag": true, "Silence": true, "Unsilence": true, "Expire": false },
+
+  // Поля Embed и цвета. Цвета задаются десятичными RGB-значениями Discord.
+  "Embed": {
+    "ShowThumbnail": true, "ShowPlayer": true, "ShowAdmin": true, "ShowReason": true,
+    "ShowDuration": true, "ShowDates": true, "ShowIp": false, "ShowServer": true,
+    "ShowType": true, "UseInlineFields": true, "DateFormat": "yyyy-MM-dd HH:mm:ss 'UTC'",
+    "FooterText": "Журнал наказаний | {server_name}",
+    "Colors": { "Ban": 15158332, "Unban": 5763719, "Kick": 15844367, "Mute": 15105570, "Unmute": 5763719, "Gag": 15105570, "Ungag": 5763719, "Silence": 15105570, "Unsilence": 5763719 }
+  },
+
+  // Плейсхолдеры: {player_name}, {player_steamid}, {admin_name}, {admin_steamid},
+  // {reason}, {duration}, {date}, {server_name}, {server_id}, {type}.
+  "Templates": {
+    "BanTitle": "Игрок заблокирован", "UnbanTitle": "Блокировка снята", "KickTitle": "Игрок исключён",
+    "MuteTitle": "Игрок получил мут голоса", "UnmuteTitle": "Мут голоса снят", "GagTitle": "Игрок получил мут чата",
+    "UngagTitle": "Мут чата снят", "SilenceTitle": "Игрок получил мут голоса и чата", "UnsilenceTitle": "Мут голоса и чата снят",
+    "Description": "Игрок **{player_name}** (`{player_steamid}`) получил наказание **{type}** от администратора **{admin_name}** (`{admin_steamid}`).",
+    "ReasonWhenEmpty": "Причина не указана"
+  },
+
+  "Throttling": { "MessagesPerMinute": 30, "MaxQueueSize": 500, "DropWhenFull": false, "PerWebhook": true },
+  "Retry": { "Attempts": 5, "BaseDelaySeconds": 2, "MaxDelaySeconds": 60, "Exponential": true, "JitterSeconds": 1, "RetryOnRateLimit": true },
+  "LocalLog": { "Enabled": true, "Path": "logs/discord-punishments.jsonl", "MaxFileBytes": 10485760, "RetentionDays": 30, "IncludePayload": true, "FlushImmediately": true },
+
+  // IP выключен по умолчанию. AllowMentions=false блокирует подстановку @everyone и @here.
+  "Privacy": { "LogIp": false, "MaskIp": true, "MaskSteamId": false, "AllowMentions": false, "MaxTextLength": 1000 },
+
+  // Основная интеграция - IksAdmin API. Перехват команд включается отдельно.
+  "Integration": {
+    "UseIksAdminApi": true, "ListenToCommandFallback": false,
+    "BanCommands": [ "css_ban", "css_addban" ], "KickCommands": [ "css_kick" ],
+    "MuteCommands": [ "css_mute", "css_gag", "css_silence" ]
+  },
+
+  // Реакции добавляются после отправки сообщения. Discord webhook должен разрешать публикацию сообщений.
+  // Для своих emoji используйте строку вида "name:id" (например, "mod_ok:123456789012345678").
+  "Reactions": {
+    "Enabled": true,
+    "WaitForMessage": true,
+    "ByType": {
+      "Ban": [ "🔨" ], "Unban": [ "✅" ], "Kick": [ "👢" ],
+      "Mute": [ "🔇" ], "Unmute": [ "🔊" ], "Gag": [ "💬" ],
+      "Ungag": [ "✅" ], "Silence": [ "🤐" ], "Unsilence": [ "✅" ]
+    }
+  }
+
+  // Пример минимального режима: оставьте только Ban=true в Events и укажите Default.
+  // Пример приватного режима: LogIp=false, AllowMentions=false, ShowIp=false.
+  // Пример разделения каналов: укажите Ban/Unban в BANS, а Mute/Gag/Silence в COMMS.
+}
