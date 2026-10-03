@@ -63,6 +63,11 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordPunishmentsConfig>
         Api.OnBanPost += OnBan; Api.OnUnBanPost += OnUnban; Api.OnCommPost += OnComm; Api.OnUnCommPost += OnUncomm; Api.OnDynamicEvent += OnDynamic;
         Api.RegisterPermission("discord_logs.reload", "z");
         Api.AddNewCommand("discord_logs_reload", "Reload punishment Discord logger configuration", "discord_logs.reload", "css_discord_logs_reload", (_, _, _) => ReloadConfig());
+        Api.AddNewCommand("discord_logs_test", "Send a test punishment Embed", "discord_logs.reload", "css_discord_logs_test", (_, _, _) => SendTest());
+        var defaultConfigured = Uri.TryCreate(Config.Webhooks.Default, UriKind.Absolute, out _);
+        Logger.LogInformation("Discord punishment logger loaded. Default webhook configured: {Configured}; server: {Server} ({Id})", defaultConfigured, ServerName, ServerId);
+        if (!defaultConfigured && !Hooks("Ban").Any())
+            Logger.LogWarning("No valid Discord webhook configured. Set Webhooks.Default or an event-specific webhook.");
         _worker = Task.Run(DispatchLoop);
     }
     public override void Unload(bool hotReload)
@@ -71,7 +76,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordPunishmentsConfig>
         _stop.Cancel(); _http.Dispose();
         base.Unload(hotReload);
     }
-    private void ReloadConfig() { try { var path = Path.Combine(ModuleDirectory, "config.json"); if (File.Exists(path)) Config = JsonSerializer.Deserialize<DiscordPunishmentsConfig>(File.ReadAllText(path)) ?? Config; } catch (Exception e) { Logger.LogError(e, "Unable to reload config"); } }
+    private void ReloadConfig() { try { var candidates = new[] { Path.Combine(ModuleDirectory, "config.json"), Path.Combine(ModuleDirectory, "..", "..", "configs", "plugins", ModuleName, ModuleName + ".json") }; var path = candidates.FirstOrDefault(File.Exists); if (path == null) { Logger.LogWarning("Discord logger config file was not found"); return; } Config = JsonSerializer.Deserialize<DiscordPunishmentsConfig>(File.ReadAllText(path), new JsonSerializerOptions { ReadCommentHandling = JsonCommentHandling.Skip }) ?? Config; Logger.LogInformation("Discord logger config reloaded from {Path}", path); } catch (Exception e) { Logger.LogError(e, "Unable to reload config"); } }
+    private void SendTest() { if (Api.ConsoleAdmin == null) { Logger.LogWarning("Cannot send test Embed: IksAdmin console admin is unavailable"); return; } Enqueue("Ban", "Тестовый игрок", "76561198000000000", null, "Проверка Discord webhook", 60, (int)DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeSeconds(), Api.ConsoleAdmin, null); Logger.LogInformation("Test Discord punishment Embed queued"); }
     private CounterStrikeSharp.API.Core.HookResult OnBan(PlayerBan ban, ref bool announce) { if (Config.Events.Ban && ban.Admin != null) Enqueue("Ban", ban.Name, ban.SteamId, ban.Ip, ban.Reason, ban.Duration, ban.EndAt, ban.Admin, null); return CounterStrikeSharp.API.Core.HookResult.Continue; }
     private CounterStrikeSharp.API.Core.HookResult OnUnban(Admin admin, ref string arg, ref string? reason, ref bool announce) { if (Config.Events.Unban) _ = CaptureUnban(admin, arg, reason); return CounterStrikeSharp.API.Core.HookResult.Continue; }
     private CounterStrikeSharp.API.Core.HookResult OnComm(PlayerComm comm, ref bool announce) { var type = TypeName(comm.MuteType); if (Enabled(type) && comm.Admin != null) Enqueue(type, comm.Name, comm.SteamId, comm.Ip, comm.Reason, comm.Duration, comm.EndAt, comm.Admin, null); return CounterStrikeSharp.API.Core.HookResult.Continue; }
