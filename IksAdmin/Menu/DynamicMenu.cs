@@ -51,7 +51,7 @@ public class DynamicMenu : IDynamicMenu
 
         AdminUtils.LogDebug($@"
             Open menu... :
-            Player: {player.PlayerName} | [{player.AuthorizedSteamID!.SteamId64}]
+            Player: {player.PlayerName} | [{player.AuthorizedSteamID?.SteamId64 ?? player.SteamID}]
             Id: {Id}
             Title: {Title}
             Type: {Type}
@@ -80,6 +80,8 @@ public class DynamicMenu : IDynamicMenu
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
         }
+
+        AdminUtils.LogDebug($"Menu backend: {menu.GetType().Name}, configured type: {Type}, player type: {GetThisMenuType(player)}");
 
         menu.PostSelectAction = PostSelectAction;
         

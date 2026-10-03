@@ -23,6 +23,7 @@ public class Main : BasePlugin
 
     public static IMenuApi? MenuApi;
     private static readonly PluginCapability<IMenuApi?> MenuCapability = new("menu:nfcore");   
+    private static bool _menuCapabilityWasAvailable;
     public static AdminApi AdminApi = null!;
     private readonly PluginCapability<IIksAdminApi> _pluginCapability  = new("iksadmin:core");
     
@@ -884,7 +885,12 @@ public class Main : BasePlugin
     public override void OnAllPluginsLoaded(bool hotReload)
     {
         ResolveMenuApi();
-        AddTimer(2.0f, ResolveMenuApi);
+        // MenuManagerCore may be loaded after IksAdmin. Keep resolving the
+        // capability until it becomes available for the current map.
+        AddTimer(1.0f, ResolveMenuApi,
+            MenuApi == null
+                ? TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE
+                : TimerFlags.STOP_ON_MAPCHANGE);
     }
 
     private static void ResolveMenuApi()
@@ -892,9 +898,13 @@ public class Main : BasePlugin
         try
         {
             MenuApi = MenuCapability.Get();
-            if (MenuApi == null)
+            var isAvailable = MenuApi != null;
+            if (isAvailable != _menuCapabilityWasAvailable)
             {
-                AdminUtils.LogDebug("Start without Menu Manager");
+                AdminUtils.LogDebug(isAvailable
+                    ? "Menu Manager capability connected"
+                    : "Menu Manager capability unavailable");
+                _menuCapabilityWasAvailable = isAvailable;
             }
         }
         catch (Exception)
