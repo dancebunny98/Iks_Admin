@@ -306,7 +306,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         };
         anomaly.Fields.Add(Field("Порог", Config.Reports.AnomalyThresholdPerHour.ToString(CultureInfo.InvariantCulture)));
         anomaly.Fields.Add(Field("Фактическое значение", records.Count.ToString(CultureInfo.InvariantCulture)));
-        await SendWebhookWithRetry(Config.Webhooks.Anomalies, new { username = "IksAdmin Logs", embeds = new[] { anomaly } });
+        await SendWebhookWithRetry(Config.Webhooks.Anomalies, new { username = "IksAdmin Logs", embeds = new[] { anomaly } }, "anomaly");
     }
 
     private async Task SendAsync(PunishmentRecord record)
@@ -318,10 +318,10 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             return;
         }
         var payload = new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) } };
-        await SendWebhookWithRetry(url, payload);
+        await SendWebhookWithRetry(url, payload, record.EventType);
     }
 
-    private async Task SendWebhookWithRetry(string url, object payload)
+    private async Task SendWebhookWithRetry(string url, object payload, string eventType = "generic")
     {
         await _sendLock.WaitAsync();
         try
@@ -333,15 +333,15 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                     using var response = await Http.PostAsJsonAsync(url, payload);
                     if (response.IsSuccessStatusCode)
                     {
-                        Logger.LogInformation("[{Module}] Discord webhook delivered", ModuleName);
+                        Logger.LogInformation("[{Module}] Discord webhook delivered for {EventType}", ModuleName, eventType);
                         return;
                     }
                     var body = await response.Content.ReadAsStringAsync();
-                    Logger.LogWarning("[{Module}] Discord webhook returned HTTP {Status}: {Body}", ModuleName, (int)response.StatusCode, Sanitize(body));
+                    Logger.LogWarning("[{Module}] Discord webhook for {EventType} returned HTTP {Status}: {Body}", ModuleName, eventType, (int)response.StatusCode, Sanitize(body));
                 }
                 catch (Exception exception)
                 {
-                    Logger.LogWarning(exception, "[{Module}] Discord webhook attempt {Attempt} failed", ModuleName, attempt + 1);
+                    Logger.LogWarning(exception, "[{Module}] Discord webhook for {EventType} attempt {Attempt} failed", ModuleName, eventType, attempt + 1);
                 }
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)));
             }
@@ -454,7 +454,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         embed.Fields.Add(Field("Кики", records.Count(x => x.EventType == "kick").ToString()));
         embed.Fields.Add(Field("Муты/гаги/сайленсы", records.Count(x => x.EventType is "mute" or "gag" or "silence").ToString()));
         embed.Fields.Add(Field("Снятия", records.Count(x => x.EventType is "unban" or "uncomm").ToString()));
-        await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = "IksAdmin Logs", embeds = new[] { embed } });
+        await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = "IksAdmin Logs", embeds = new[] { embed } }, "report");
     }
 
     private void OnReload(CCSPlayerController? caller, List<string> args, CommandInfo info)
