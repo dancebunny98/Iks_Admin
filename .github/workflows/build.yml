@@ -233,10 +233,18 @@ jobs:
           fi
 
           # IPluginConfig loads this file from configs/plugins/<module>/<module>.json.
+          # Modules may keep the source template as config.json or as
+          # <ModuleName>.json next to the project file.
+          CONFIG_SOURCE=""
           if [ -f "$PROJDIR/config.json" ]; then
+            CONFIG_SOURCE="$PROJDIR/config.json"
+          elif [ -f "$PROJDIR/$MOD.json" ]; then
+            CONFIG_SOURCE="$PROJDIR/$MOD.json"
+          fi
+          if [ -n "$CONFIG_SOURCE" ]; then
             CONFIG_OUT="out/addons/counterstrikesharp/configs/plugins/$MOD"
             mkdir -p "$CONFIG_OUT"
-            cp "$PROJDIR/config.json" "$CONFIG_OUT/$MOD.json"
+            cp "$CONFIG_SOURCE" "$CONFIG_OUT/$MOD.json"
           fi
 
           find out -type f

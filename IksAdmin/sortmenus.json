@@ -1,24 +1,137 @@
 {
-    "iksadmin:menu:testmenu" : [
-        {
-            "Id" : "iksadmin:option:1",
-            "ViewFlags" : "not override",
-            "View" : true
-        },
-        {
-            "Id" : "iksadmin:option:3",
-            "ViewFlags" : "not override",
-            "View" : true
-        }
-    ],
-    "iksadmin:menu:main" : [
-        {
-            "Id" : "iksadmin:option:sm",
-            "View" : true
-        },
-        {
-            "Id" : "iksadmin:option:bm",
-            "View" : true
-        }
-    ]
+  "iksadmin:menu:main": [
+    { "Id": "sm", "ViewFlags": "not override", "View": true },
+    { "Id": "pm", "ViewFlags": "not override", "View": true },
+    { "Id": "bm", "ViewFlags": "not override", "View": true },
+    { "Id": "maps_change", "ViewFlags": "not override", "View": true },
+    { "Id": "vip_give", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:ac": [
+    { "Id": "am", "ViewFlags": "not override", "View": true },
+    { "Id": "warns", "ViewFlags": "not override", "View": true },
+    { "Id": "gm", "ViewFlags": "not override", "View": true },
+    { "Id": "reload", "ViewFlags": "not override", "View": true },
+    { "Id": "rcon", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:am": [
+    { "Id": "add", "ViewFlags": "not override", "View": true },
+    { "Id": "edit_this_server", "ViewFlags": "not override", "View": true },
+    { "Id": "edit_all", "ViewFlags": "not override", "View": true },
+    { "Id": "delete", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:am_edit": [
+    { "Id": "save", "ViewFlags": "not override", "View": true },
+    { "Id": "name", "ViewFlags": "not override", "View": true },
+    { "Id": "steam_id", "ViewFlags": "not override", "View": true },
+    { "Id": "server_id", "ViewFlags": "not override", "View": true },
+    { "Id": "flags", "ViewFlags": "not override", "View": true },
+    { "Id": "immunity", "ViewFlags": "not override", "View": true },
+    { "Id": "group", "ViewFlags": "not override", "View": true },
+    { "Id": "vk", "ViewFlags": "not override", "View": true },
+    { "Id": "discord", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:am_add": [
+    { "Id": "save", "ViewFlags": "not override", "View": true },
+    { "Id": "name", "ViewFlags": "not override", "View": true },
+    { "Id": "steam_id", "ViewFlags": "not override", "View": true },
+    { "Id": "flags", "ViewFlags": "not override", "View": true },
+    { "Id": "immunity", "ViewFlags": "not override", "View": true },
+    { "Id": "group", "ViewFlags": "not override", "View": true },
+    { "Id": "vk", "ViewFlags": "not override", "View": true },
+    { "Id": "discord", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:am_edit_server_id": [
+    { "Id": "all", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:gm": [
+    { "Id": "add", "ViewFlags": "not override", "View": true },
+    { "Id": "edit", "ViewFlags": "not override", "View": true },
+    { "Id": "delete", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:gm_edit": [
+    { "Id": "name", "ViewFlags": "not override", "View": true },
+    { "Id": "flags", "ViewFlags": "not override", "View": true },
+    { "Id": "immunity", "ViewFlags": "not override", "View": true },
+    { "Id": "comment", "ViewFlags": "not override", "View": true },
+    { "Id": "save", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:gm_add": [
+    { "Id": "name", "ViewFlags": "not override", "View": true },
+    { "Id": "flags", "ViewFlags": "not override", "View": true },
+    { "Id": "immunity", "ViewFlags": "not override", "View": true },
+    { "Id": "comment", "ViewFlags": "not override", "View": true },
+    { "Id": "save", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:pm_main": [
+    { "Id": "kick", "ViewFlags": "not override", "View": true },
+    { "Id": "team", "ViewFlags": "not override", "View": true },
+    { "Id": "slay", "ViewFlags": "not override", "View": true },
+    { "Id": "respawn", "ViewFlags": "not override", "View": true },
+    { "Id": "rename", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:pm_select_team_mode": [
+    { "Id": "changeteam", "ViewFlags": "not override", "View": true },
+    { "Id": "switchteam", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:pm_select_team": [
+    { "Id": "ct", "ViewFlags": "not override", "View": true },
+    { "Id": "t", "ViewFlags": "not override", "View": true },
+    { "Id": "spec", "ViewFlags": "not override", "View": true },
+    { "Id": "now", "ViewFlags": "not override", "View": true },
+    { "Id": "endround", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:bm": [
+    { "Id": "bans", "ViewFlags": "not override", "View": true },
+    { "Id": "cm", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:bm.ban": [
+    { "Id": "add", "ViewFlags": "not override", "View": true },
+    { "Id": "add.offline", "ViewFlags": "not override", "View": true },
+    { "Id": "iksadmin:option:bm.unban", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:bm_ban_reason": [
+    { "Id": "iksadmin:option:own_ban_reason", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:bm_ban_time": [
+    { "Id": "own_ban_time", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:bm_ban_type": [
+    { "Id": "iksadmin:option:bm_ban_steam_id", "ViewFlags": "not override", "View": true },
+    { "Id": "iksadmin:option:bm_ban_ip", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm.comm": [
+    { "Id": "add", "ViewFlags": "not override", "View": true },
+    { "Id": "remove", "ViewFlags": "not override", "View": true },
+    { "Id": "remove_offline", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_comm_select": [
+    { "Id": "mutevoice", "ViewFlags": "not override", "View": true },
+    { "Id": "mutechat", "ViewFlags": "not override", "View": true },
+    { "Id": "muteall", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_mute_reason": [
+    { "Id": "own_reason", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_gag_reason": [
+    { "Id": "own_reason", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_silence_reason": [
+    { "Id": "own_reason", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_mute_time": [
+    { "Id": "own_mute_time", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_gag_time": [
+    { "Id": "own_gag_time", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:cm_silence_time": [
+    { "Id": "own_silence_time", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:warns.main": [
+    { "Id": "add", "ViewFlags": "not override", "View": true },
+    { "Id": "list", "ViewFlags": "not override", "View": true }
+  ],
+  "iksadmin:menu:warns.list": [],
+  "iksadmin_maps:menu:category": [],
+  "iksadmin_onlineadmins:menu:list": []
 }

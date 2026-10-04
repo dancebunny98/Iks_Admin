@@ -1,0 +1,101 @@
+{
+  "Version": 1,
+  "Webhooks": {
+    "Punishments": "",
+    "Reports": "",
+    "Anomalies": "",
+    "Errors": ""
+  },
+  "EmbedSettings": {
+    "IncludeAvatar": false,
+    "IncludeIp": false,
+    "TimeZone": "UTC",
+    "DateFormat": "yyyy-MM-dd HH:mm:ss zzz",
+    "MaxFieldLength": 1024,
+    "FooterName": "IksAdmin Discord Punishments",
+    "BanColor": 15158332,
+    "CommColor": 15105570,
+    "KickColor": 16776960,
+    "RemoveColor": 5763719,
+    "ExpiredColor": 9807270
+  },
+  "Templates": {
+    "ban": {
+      "Title": "🔨 Бан выдан",
+      "Description": "Игрок **{player}** забанен администратором **{admin}**.",
+      "Emoji": "🔨",
+      "Color": 15158332
+    },
+    "mute": {
+      "Title": "🔇 Мут выдан",
+      "Description": "Игрок **{player}** получил мут от **{admin}**.",
+      "Emoji": "🔇",
+      "Color": 15105570
+    },
+    "gag": {
+      "Title": "💬 Гаг выдан",
+      "Description": "Игрок **{player}** получил ограничение чата от **{admin}**.",
+      "Emoji": "💬",
+      "Color": 15105570
+    },
+    "silence": {
+      "Title": "🤐 Сайленс выдан",
+      "Description": "Игрок **{player}** получил полную блокировку общения от **{admin}**.",
+      "Emoji": "🤐",
+      "Color": 15105570
+    },
+    "kick": {
+      "Title": "👢 Игрок кикнут",
+      "Description": "Игрок **{player}** кикнут администратором **{admin}**.",
+      "Emoji": "👢",
+      "Color": 16776960
+    },
+    "unban": {
+      "Title": "✅ Бан снят",
+      "Description": "Бан игрока **{player}** снят администратором **{admin}**.",
+      "Emoji": "✅",
+      "Color": 5763719
+    },
+    "uncomm": {
+      "Title": "✅ Наказание чата снято",
+      "Description": "Наказание чата игрока **{player}** снято администратором **{admin}**.",
+      "Emoji": "✅",
+      "Color": 5763719
+    },
+    "expired": {
+      "Title": "⏰ Срок наказания истёк",
+      "Description": "Срок наказания игрока **{player}** истёк.",
+      "Emoji": "⏰",
+      "Color": 9807270
+    }
+  },
+  "Fields": {
+    "ban": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true },
+    "mute": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true },
+    "gag": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true },
+    "silence": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true },
+    "kick": { "Player": true, "Administrator": true, "Reason": true, "Duration": false, "IssuedAt": true, "ExpiresAt": false, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true },
+    "unban": { "Player": true, "Administrator": true, "Reason": true, "Duration": false, "IssuedAt": true, "ExpiresAt": false, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": false },
+    "uncomm": { "Player": true, "Administrator": true, "Reason": true, "Duration": false, "IssuedAt": true, "ExpiresAt": false, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": false },
+    "expired": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true }
+  },
+  "Reports": {
+    "Enabled": true,
+    "IntervalMinutes": 60,
+    "IncludeTopModerators": true,
+    "IncludeTopPlayers": true,
+    "IncludeReasons": true,
+    "AnomalyThresholdPerHour": 10,
+    "SendScheduledReports": false
+  },
+  "Export": {
+    "Enabled": true,
+    "Directory": "discord-punishment-reports"
+  },
+  "Permissions": {
+    "Report": "z",
+    "Export": "z",
+    "Reload": "z"
+  },
+  "MaxStoredRecords": 10000
+}
