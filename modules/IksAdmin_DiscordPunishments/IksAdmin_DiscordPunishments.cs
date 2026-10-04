@@ -299,7 +299,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         };
         anomaly.Fields.Add(Field("Порог", Config.Reports.AnomalyThresholdPerHour.ToString(CultureInfo.InvariantCulture)));
         anomaly.Fields.Add(Field("Фактическое значение", records.Count.ToString(CultureInfo.InvariantCulture)));
-        await SendWebhookWithRetry(Config.Webhooks.Anomalies, new { username = Config.EmbedSettings.FooterName, embeds = new[] { anomaly } });
+        await SendWebhookWithRetry(Config.Webhooks.Anomalies, new { username = "IksAdmin Logs", embeds = new[] { anomaly } });
     }
 
     private async Task SendAsync(PunishmentRecord record)
@@ -310,7 +310,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
             return;
         }
-        var payload = new { username = Config.EmbedSettings.FooterName, embeds = new[] { BuildEmbed(record) } };
+        var payload = new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) } };
         await SendWebhookWithRetry(url, payload);
     }
 
@@ -447,7 +447,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         embed.Fields.Add(Field("Кики", records.Count(x => x.EventType == "kick").ToString()));
         embed.Fields.Add(Field("Муты/гаги/сайленсы", records.Count(x => x.EventType is "mute" or "gag" or "silence").ToString()));
         embed.Fields.Add(Field("Снятия", records.Count(x => x.EventType is "unban" or "uncomm").ToString()));
-        await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = Config.EmbedSettings.FooterName, embeds = new[] { embed } });
+        await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = "IksAdmin Logs", embeds = new[] { embed } });
     }
 
     private void OnReload(CCSPlayerController? caller, List<string> args, CommandInfo info)
