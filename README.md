@@ -1,5 +1,7 @@
 ![Github All Releases](https://img.shields.io/github/downloads/iksix/Iks_Admin/total?style=flat-square&color=red&.svg)
 
+Документация для модераторов: [памятка по наказаниям и причинам](docs/moderator-guide.md).
+
 # IksAdmin 3.0
 **Обновление БД версии 2.0 до 3.0**: [тык*](https://github.com/Iksix/DbUpdaterApp/tree/main)
 ### Для пользователей MyArena:
