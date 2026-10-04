@@ -20,7 +20,7 @@
     "Message.CH.FlagsSet" : "Напишіть прапори в чат: {red}!abc...",
     "Message.CH.ImmunitySet" : "Напишіть імунітет в чат: {red}!10",
     "Message.CH.ConfirmDeleting" : "Підтвердіть видалення ввівши: {red}!delete",
-    "Message.PrintOwnTime" : "Введіть свій час у хвилинах: {red}!10",
+    "Message.PrintOwnTime" : "Введіть термін: {red}!10{white} або {red}!1y 2mo 4w 10d 16h 55m{white}. Одиниці: m/min, h, d, w, mo, y; назавжди: forever/inf/perm/п",
     // Global messages
     "Message.GL.DeleteCanceled" : "Видалення скасовано",
     "Message.GL.ReasonSet" : "Введіть причину: {red}!причина",

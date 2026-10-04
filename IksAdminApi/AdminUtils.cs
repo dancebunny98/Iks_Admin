@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
@@ -79,6 +80,47 @@ public static class AdminUtils
     public static int CurrentTimestamp()
     {
         return (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    }
+
+    private static readonly Regex DurationPartRegex = new(@"(?<value>\d+(?:[.,]\d+)?)(?<unit>[a-zA-Zа-яА-Я]+)", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    public static bool TryParseDurationMinutes(string? input, out int minutes)
+    {
+        minutes = 0;
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        // Chat input may contain spaces between number and unit or between parts:
+        // "!1 д 2м", "!20 дней", "!3 минуты !1 минута".
+        var value = Regex.Replace(input.Trim().Replace(',', '.').ToLowerInvariant(), @"[\s!]+", "");
+        if (value.Length == 0) return false;
+        if (value is "forever" or "inf" or "perm" or "permanent" or "п") return true;
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var plain))
+        {
+            if (plain < 0) return false;
+            minutes = plain;
+            return true;
+        }
+        var matches = DurationPartRegex.Matches(value);
+        if (matches.Count == 0 || string.Concat(matches.Select(x => x.Value)) != value) return false;
+        decimal total = 0;
+        foreach (Match match in matches)
+        {
+            if (!decimal.TryParse(match.Groups["value"].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)) return false;
+            var multiplier = match.Groups["unit"].Value switch
+            {
+                "m" or "min" or "mins" or "мин" or "м" or "минута" or "минуты" or "минуте" or "минуту" or "минутой" or "минутою" or "минут" or "минутам" or "минутами" or "минутах" or "minute" or "minutes" => 1,
+                "h" or "hr" or "hrs" or "ч" or "час" or "часа" or "часу" or "часом" or "часе" or "часы" or "часов" or "часам" or "часами" or "часах" or "hour" or "hours" => 60,
+                "d" or "д" or "дн" or "день" or "дня" or "дню" or "днём" or "днем" or "дне" or "дни" or "дней" or "дням" or "днями" or "днях" or "day" or "days" => 1440,
+                "w" or "wk" or "wks" or "н" or "нед" or "неделя" or "недели" or "неделе" or "неделю" or "неделей" or "неделею" or "недель" or "неделям" or "неделями" or "неделях" or "week" or "weeks" => 10080,
+                "mo" or "mon" or "mth" or "мес" or "месяц" or "месяца" or "месяцу" or "месяцем" or "месяце" or "месяцы" or "месяцев" or "месяцам" or "месяцами" or "месяцах" or "month" or "months" => 43200,
+                "y" or "yr" or "yrs" or "г" or "гг" or "год" or "года" or "году" or "годом" or "годе" or "годы" or "лет" or "годов" or "годам" or "годами" or "годах" or "year" or "years" => 525600,
+                _ => 0
+            };
+            if (multiplier == 0) return false;
+            total += amount * multiplier;
+            if (total > int.MaxValue) return false;
+        }
+        minutes = (int)Math.Ceiling(total);
+        return true;
     }
 
     public static List<PlayerComm> GetComms(this CCSPlayerController player)

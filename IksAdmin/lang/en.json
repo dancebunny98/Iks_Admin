@@ -20,7 +20,7 @@
     "Message.CH.FlagsSet" : "Write flags in chat: {red}!abc...",
     "Message.CH.ImmunitySet" : "Write immunity in chat: {red}!10",
     "Message.CH.ConfirmDeleting" : "Confirm deletion by entering: {red}!delete",
-    "Message.PrintOwnTime" : "Enter your own time in minutes: {red}!10",
+    "Message.PrintOwnTime" : "Enter duration: {red}!10{white} or {red}!1y 2mo 4w 10d 16h 55m{white}. Units: m/min, h, d, w, mo, y; permanent: forever/inf/perm",
     // Global messages
     "Message.GL.DeleteCanceled" : "Deletion canceled",
     "Message.GL.ReasonSet" : "Enter reason: {red}!reason",

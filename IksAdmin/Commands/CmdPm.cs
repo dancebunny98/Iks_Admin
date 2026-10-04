@@ -14,13 +14,16 @@ public static class CmdPm
     {
         // css_kick <#uid/#steamId/name/@...> <reason>
         var identity = args[0];
-        var reason = args[1];
+        var reason = string.Join(" ", args.Skip(1));
+        var admin = caller?.Admin() ?? _api.ConsoleAdmin;
+        var callerSteamId = caller.GetSteamId();
         _api.DoActionWithIdentity(caller, identity,
             (target, identityType) =>
             {
-                if (target!.IsBot || _api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId()))
+                if (target == null) return;
+                if (target.IsBot || target.GetSteamId() == callerSteamId || _api.CanDoActionWithPlayer(callerSteamId, target.GetSteamId()))
                 {
-                    _api.Kick(caller.Admin()!, target, reason);
+                    _api.Kick(admin, target, reason);
                 }
             },
             blockedArgs: KicksConfig.Config.BlockedIdentifiers

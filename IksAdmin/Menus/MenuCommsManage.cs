@@ -351,7 +351,7 @@ public static class MenuCommsManage
         menu.AddMenuOption("own_mute_time" ,_localizer["MenuOption.Other.OwnTime"], (_, _) => {
             Helper.Print(caller, _localizer["Message.PrintOwnTime"]);
             _api.HookNextPlayerMessage(caller, time => {
-                if (!int.TryParse(time, out var timeInt))
+                if (!AdminUtils.TryParseDurationMinutes(time, out var timeInt))
                 {
                     Helper.Print(caller, _localizer["Error.MustBeANumber"]);
                     return;
@@ -407,7 +407,7 @@ public static class MenuCommsManage
         menu.AddMenuOption("own_gag_time" ,_localizer["MenuOption.Other.OwnTime"], (_, _) => {
             Helper.Print(caller, _localizer["Message.PrintOwnTime"]);
             _api.HookNextPlayerMessage(caller, time => {
-                if (!int.TryParse(time, out var timeInt))
+                if (!AdminUtils.TryParseDurationMinutes(time, out var timeInt))
                 {
                     Helper.Print(caller, _localizer["Error.MustBeANumber"]);
                     return;
@@ -463,7 +463,7 @@ public static class MenuCommsManage
         menu.AddMenuOption("own_silence_time" ,_localizer["MenuOption.Other.OwnTime"], (_, _) => {
             Helper.Print(caller, _localizer["Message.PrintOwnTime"]);
             _api.HookNextPlayerMessage(caller, time => {
-                if (!int.TryParse(time, out var timeInt))
+                if (!AdminUtils.TryParseDurationMinutes(time, out var timeInt))
                 {
                     Helper.Print(caller, _localizer["Error.MustBeANumber"]);
                     return;

@@ -14,11 +14,11 @@ public static class CmdBans
         //css_ban <#uid/#steamId/name> <time> <reason>
         var identity = args[0];
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var reason = string.Join(" ", args.Skip(2));
         _api.DoActionWithIdentity(caller, identity, (target, _) => 
         {
-            if (!_api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId()))
+            if (target.GetSteamId() != caller.GetSteamId() && !_api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId()))
             {
                 caller.Print(_api.Localizer["ActionError.NotEnoughPermissionsForAction"]);
                 return;
@@ -44,7 +44,7 @@ public static class CmdBans
         AdminUtils.LogDebug("=== Ban cmd ===");
         var steamId = args[0];
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var reason = string.Join(" ", args.Skip(2));
         string? name = null;
         string? ip = null;
@@ -116,11 +116,11 @@ public static class CmdBans
         // css_banip <#uid/#steamId/name/@...> <time> <reason>
         var identity = args[0];
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var reason = string.Join(" ", args.Skip(2));
         _api.DoActionWithIdentity(caller, identity, (target, _) => 
         {
-            if (!_api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId()))
+            if (target.GetSteamId() != caller.GetSteamId() && !_api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId()))
             {
                 caller.Print(_api.Localizer["ActionError.NotEnoughPermissionsForAction"]);
                 return;
@@ -147,7 +147,7 @@ public static class CmdBans
         // css_addbanip <ip> <time> <reason>
         var ip = args[0];
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var reason = string.Join(" ", args.Skip(2));
         string? name = null;
         var target = PlayersUtils.GetControllerByIp(ip);

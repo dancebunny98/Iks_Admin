@@ -15,7 +15,7 @@ public class CmdMutes
         //css_mute <#uid/#sid/name/@...> <time> <reason>
         var identity = args[0];
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var admin = caller.Admin()!;
         var reason = string.Join(" ", args.Skip(2));
         Main.AdminApi.DoActionWithIdentity(caller, identity, (target, _) => 
@@ -42,7 +42,7 @@ public class CmdMutes
         var steamId = args[0];
         if (!ulong.TryParse(steamId, out var uSteamID)) throw new ArgumentException("Steam id is not a number");
         var time = args[1];
-        if (!int.TryParse(time, out int timeInt)) throw new ArgumentException("Time is not a number");
+        if (!AdminUtils.TryParseDurationMinutes(time, out int timeInt)) throw new ArgumentException("Invalid duration");
         var reason = string.Join(" ", args.Skip(2));
         string? name = null;
         string? ip = null;

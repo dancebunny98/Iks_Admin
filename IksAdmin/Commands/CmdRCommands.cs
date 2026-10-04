@@ -29,7 +29,8 @@ public static class CmdBansCmdRCommands
             return;
         }
         var ip = args[2] == "-" ? null : args[2];
-        var time = int.Parse(args[3]);
+        if (!AdminUtils.TryParseDurationMinutes(args[3], out var time))
+            throw new ArgumentException("Invalid duration");
         var type = int.Parse(args[4]);
         var reason = args[5];
         if (!BansConfig.HasReason(reason) && !admin.HasPermissions("blocks_manage.own_ban_reason"))
@@ -89,7 +90,8 @@ public static class CmdBansCmdRCommands
         }
         
         var ip = args[2] == "-" ? null : args[2];
-        var time = int.Parse(args[3]);
+        if (!AdminUtils.TryParseDurationMinutes(args[3], out var time))
+            throw new ArgumentException("Invalid duration");
         var type = int.Parse(args[4]);
         var reason = args[5];
         var permission = type switch

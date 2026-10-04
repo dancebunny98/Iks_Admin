@@ -28,6 +28,8 @@ public sealed class DiscordLogsConfig : BasePluginConfig
 public sealed class WebhookConfig
 {
     public string Punishments { get; set; } = "";
+    // Compatibility with the older config format that used one shared webhook.
+    public string Default { get; set; } = "";
     public string Reports { get; set; } = "";
     public string Anomalies { get; set; } = "";
     public string Errors { get; set; } = "";
@@ -147,7 +149,12 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     public override string ModuleVersion => $"v{typeof(Main).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"}";
     public override string ModuleAuthor => "iks__ modules";
     public DiscordLogsConfig Config { get; set; } = new();
-    public void OnConfigParsed(DiscordLogsConfig config) => Config = config;
+    public void OnConfigParsed(DiscordLogsConfig config)
+    {
+        if (string.IsNullOrWhiteSpace(config.Webhooks.Punishments))
+            config.Webhooks.Punishments = config.Webhooks.Default;
+        Config = config;
+    }
 
     public override void InitializeCommands()
     {

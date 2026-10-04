@@ -20,7 +20,7 @@
     "Message.CH.FlagsSet" : "Напишите флаги в чат: {red}!abc...",
     "Message.CH.ImmunitySet" : "Напишите иммунитет в чат: {red}!10",
     "Message.CH.ConfirmDeleting" : "Подтвердите удаление введя: {red}!delete",
-    "Message.PrintOwnTime" : "Введите своё время в минутах: {red}!10",
+    "Message.PrintOwnTime" : "Введите срок: {red}!10{white} или {red}!1y 2mo 4w 10d 16h 55m{white}. Единицы: m/min, h, d, w, mo, y; навсегда: forever/inf/perm/п",
     // Global messages
     "Message.GL.DeleteCanceled" : "Удаление отменено",
     "Message.GL.ReasonSet" : "Введите причину: {red}!причина",

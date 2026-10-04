@@ -160,7 +160,7 @@ public static class MenuBansManage
         menu.AddMenuOption("own_ban_time" ,_localizer["MenuOption.Other.OwnTime"], (_, _) => {
             Helper.Print(caller, _localizer["Message.PrintOwnTime"]);
             _api.HookNextPlayerMessage(caller, time => {
-                if (!int.TryParse(time, out var timeInt))
+                if (!AdminUtils.TryParseDurationMinutes(time, out var timeInt))
                 {
                     Helper.Print(caller, _localizer["Error.MustBeANumber"]);
                     return;
