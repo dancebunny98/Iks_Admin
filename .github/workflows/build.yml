@@ -2,7 +2,7 @@ name: Build modules
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "**" ]
     paths:
       - 'modules/**'
       - 'IksAdmin/**'
