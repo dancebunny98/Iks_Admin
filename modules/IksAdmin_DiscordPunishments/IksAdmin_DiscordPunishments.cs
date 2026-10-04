@@ -155,6 +155,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         _failedPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "failed-webhooks.jsonl");
         Directory.CreateDirectory(Path.GetDirectoryName(_dataPath)!);
         LoadRecords();
+        Logger.LogInformation("[{Module}] loaded. Punishment webhook configured: {Configured}", ModuleName, !string.IsNullOrWhiteSpace(Config.Webhooks.Punishments));
 
         Api.RegisterPermission("discord_logs.report", Config.Permissions.Report);
         Api.RegisterPermission("discord_logs.export", Config.Permissions.Export);
@@ -169,7 +170,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         Api.OnCommPost += OnCommPost;
         Api.SuccessUnban += OnUnban;
         Api.SuccessUnComm += OnUncomm;
-        Api.OnCommandUsedPost += OnCommandUsed;
+        Api.OnKickPost += OnKickPost;
         AddTimer(60.0f, OnPeriodicCheck, TimerFlags.REPEAT);
     }
 
@@ -179,7 +180,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         Api.OnCommPost -= OnCommPost;
         Api.SuccessUnban -= OnUnban;
         Api.SuccessUnComm -= OnUncomm;
-        Api.OnCommandUsedPost -= OnCommandUsed;
+        Api.OnKickPost -= OnKickPost;
         _sendLock.Dispose();
         base.Unload(hotReload);
     }
@@ -231,17 +232,15 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         RecordAndSend(record);
     }
 
-    private HookResult OnCommandUsed(CCSPlayerController? caller, List<string> args, CommandInfo info)
+    private void OnKickPost(Admin admin, CCSPlayerController player, string reason)
     {
-        if (caller == null || args.Count == 0 || !info.GetCommandString.Contains("kick", StringComparison.OrdinalIgnoreCase)) return HookResult.Continue;
         var record = new PunishmentRecord
         {
-            EventType = "kick", Player = args[0], Administrator = caller.PlayerName,
-            AdministratorSteamId = caller.GetSteamId(), Reason = args.Count > 1 ? string.Join(" ", args.Skip(1)) : "",
+            EventType = "kick", Player = player.PlayerName, Administrator = admin.CurrentName,
+            AdministratorSteamId = admin.SteamId, Reason = reason,
             CreatedAt = AdminUtils.CurrentTimestamp()
         };
         RecordAndSend(record);
-        return HookResult.Continue;
     }
 
     private void RecordAndSend(PunishmentRecord record)
@@ -306,7 +305,11 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private async Task SendAsync(PunishmentRecord record)
     {
         var url = record.EventType is "unban" or "uncomm" ? Config.Webhooks.Punishments : Config.Webhooks.Punishments;
-        if (string.IsNullOrWhiteSpace(url)) return;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
+            return;
+        }
         var payload = new { username = Config.EmbedSettings.FooterName, embeds = new[] { BuildEmbed(record) } };
         await SendWebhookWithRetry(url, payload);
     }
@@ -321,9 +324,18 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                 try
                 {
                     using var response = await Http.PostAsJsonAsync(url, payload);
-                    if (response.IsSuccessStatusCode) return;
+                    if (response.IsSuccessStatusCode)
+                    {
+                        Logger.LogInformation("[{Module}] Discord webhook delivered", ModuleName);
+                        return;
+                    }
+                    var body = await response.Content.ReadAsStringAsync();
+                    Logger.LogWarning("[{Module}] Discord webhook returned HTTP {Status}: {Body}", ModuleName, (int)response.StatusCode, Sanitize(body));
                 }
-                catch { }
+                catch (Exception exception)
+                {
+                    Logger.LogWarning(exception, "[{Module}] Discord webhook attempt {Attempt} failed", ModuleName, attempt + 1);
+                }
                 await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)));
             }
             await File.AppendAllTextAsync(_failedPath, JsonSerializer.Serialize(payload) + Environment.NewLine);

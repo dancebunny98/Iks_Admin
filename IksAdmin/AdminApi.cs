@@ -491,6 +491,7 @@ public class AdminApi : IIksAdminApi
     public event Action<string, string>? OnFullConnect;
     public event IIksAdminApi.OnCommandUsed? OnCommandUsedPre;
     public event IIksAdminApi.OnCommandUsed? OnCommandUsedPost;
+    public event IIksAdminApi.KickHandler? OnKickPost;
     public event Action<Admin, PlayerBan> SuccessUnban;
     public event Action<Admin, PlayerComm> SuccessUnComm;
 
@@ -2284,6 +2285,7 @@ public class AdminApi : IIksAdminApi
             MsgAnnounces.Kick(admin, player, reason);
 
         eventData.Invoke("kick_player_post");
+        OnKickPost?.Invoke(admin, player, reason);
     }
 
     public void Respawn(Admin admin, CCSPlayerController player, bool announce = true)

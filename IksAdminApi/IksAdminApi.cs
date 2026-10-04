@@ -202,6 +202,9 @@ public interface IIksAdminApi
     public delegate HookResult CommHandler(PlayerComm comm, ref bool announce); 
     public event CommHandler OnCommPre;
     public event CommHandler OnCommPost;
+
+    public delegate void KickHandler(Admin admin, CCSPlayerController player, string reason);
+    public event KickHandler OnKickPost;
     
     public delegate HookResult UnCommHandler(Admin admin, ref string steamId, ref string? reason, ref bool announce); 
     public event UnCommHandler OnUnCommPre;
