@@ -1,6 +1,7 @@
 {
   "Version": 1,
   "Webhooks": {
+    "Default": "",
     "Punishments": "",
     "Reports": "",
     "Anomalies": "",
