@@ -1,8 +1,10 @@
 using System.Globalization;
-using System.Net.Http.Json;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Encodings.Web;
+using System.Collections.Concurrent;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Commands;
@@ -141,6 +143,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private readonly object _sync = new();
     private readonly List<PunishmentRecord> _records = new();
     private readonly HashSet<string> _expiredSent = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, byte> _dispatchKeys = new(StringComparer.Ordinal);
     private string _dataPath = "";
     private string _failedPath = "";
     private SemaphoreSlim _sendLock = new(1, 1);
@@ -259,8 +262,16 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                 _records.RemoveRange(0, _records.Count - Config.MaxStoredRecords);
             SaveRecords();
         }
+        if (!_dispatchKeys.TryAdd(DispatchKey(record), 0))
+        {
+            Logger.LogWarning("[{Module}] duplicate {EventType} event ignored for {SteamId} at {CreatedAt}", ModuleName, record.EventType, record.SteamId, record.CreatedAt);
+            return;
+        }
         _ = SendAsync(record);
     }
+
+    private static string DispatchKey(PunishmentRecord record) =>
+        string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt, record.RemovedAt, record.Reason);
 
     private void OnPeriodicCheck()
     {
@@ -311,18 +322,33 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private async Task SendAsync(PunishmentRecord record)
     {
-        var url = record.EventType is "unban" or "uncomm" ? Config.Webhooks.Punishments : Config.Webhooks.Punishments;
-        if (string.IsNullOrWhiteSpace(url))
+        try
         {
-            Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
-            return;
+            var url = Config.Webhooks.Punishments;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
+                return;
+            }
+            var payload = new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) } };
+            await SendWebhookWithRetry(url, payload, record.EventType);
         }
-        var payload = new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) } };
-        await SendWebhookWithRetry(url, payload, record.EventType);
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "[{Module}] failed to prepare Discord webhook for {EventType}", ModuleName, record.EventType);
+        }
     }
 
     private async Task SendWebhookWithRetry(string url, object payload, string eventType = "generic")
     {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var webhook) ||
+            (webhook.Scheme != Uri.UriSchemeHttps && webhook.Scheme != Uri.UriSchemeHttp))
+        {
+            Logger.LogError("[{Module}] invalid Discord webhook URL for {EventType}", ModuleName, eventType);
+            return;
+        }
+        var separator = string.IsNullOrEmpty(webhook.Query) ? "?" : "&";
+        var requestUri = new Uri(webhook + $"{separator}wait=true");
         await _sendLock.WaitAsync();
         try
         {
@@ -330,7 +356,13 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             {
                 try
                 {
-                    using var response = await Http.PostAsJsonAsync(url, payload);
+                    var json = JsonSerializer.Serialize(payload, JsonOptions());
+                    using var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
+                    {
+                        Content = new StringContent(json, Encoding.UTF8, "application/json")
+                    };
+                    request.Headers.UserAgent.ParseAdd("IksAdmin-DiscordPunishments/1.0");
+                    using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
                     if (response.IsSuccessStatusCode)
                     {
                         Logger.LogInformation("[{Module}] Discord webhook delivered for {EventType}", ModuleName, eventType);
@@ -338,17 +370,43 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                     }
                     var body = await response.Content.ReadAsStringAsync();
                     Logger.LogWarning("[{Module}] Discord webhook for {EventType} returned HTTP {Status}: {Body}", ModuleName, eventType, (int)response.StatusCode, Sanitize(body));
+                    if (!IsRetryable(response.StatusCode))
+                    {
+                        await SaveFailedPayload(payload, eventType, $"HTTP {(int)response.StatusCode}");
+                        return;
+                    }
+                    var delay = response.StatusCode == HttpStatusCode.TooManyRequests && response.Headers.RetryAfter?.Delta is { } retryAfter
+                        ? retryAfter
+                        : TimeSpan.FromSeconds(Math.Pow(2, attempt + 1));
+                    if (attempt < 3) await Task.Delay(delay);
+                    continue;
                 }
                 catch (Exception exception)
                 {
                     Logger.LogWarning(exception, "[{Module}] Discord webhook for {EventType} attempt {Attempt} failed", ModuleName, eventType, attempt + 1);
                 }
-                await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)));
+                if (attempt < 3) await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)));
             }
-            await File.AppendAllTextAsync(_failedPath, JsonSerializer.Serialize(payload) + Environment.NewLine);
+            await SaveFailedPayload(payload, eventType, "retries exhausted");
         }
         finally { _sendLock.Release(); }
     }
+
+    private async Task SaveFailedPayload(object payload, string eventType, string error)
+    {
+        try
+        {
+            var entry = new { eventType, error, payload, timestamp = DateTimeOffset.UtcNow };
+            await File.AppendAllTextAsync(_failedPath, JsonSerializer.Serialize(entry, JsonOptions()) + Environment.NewLine);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "[{Module}] failed to persist Discord webhook failure", ModuleName);
+        }
+    }
+
+    private static bool IsRetryable(HttpStatusCode status) =>
+        status == HttpStatusCode.RequestTimeout || status == HttpStatusCode.TooManyRequests || (int)status >= 500;
 
     private DiscordEmbed BuildEmbed(PunishmentRecord record)
     {
@@ -465,6 +523,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         {
             var parsed = JsonSerializer.Deserialize<DiscordLogsConfig>(File.ReadAllText(path), JsonOptions());
             if (parsed == null) throw new InvalidDataException("empty config");
+            if (string.IsNullOrWhiteSpace(parsed.Webhooks.Punishments))
+                parsed.Webhooks.Punishments = parsed.Webhooks.Default;
             Config = parsed;
             caller?.Print("Конфиг Discord-логирования перечитан.");
         }
@@ -501,7 +561,14 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         try { File.WriteAllText(_dataPath, JsonSerializer.Serialize(_records, JsonOptions())); }
         catch (Exception e) { Logger.LogError(e, "Failed to save punishment records"); }
     }
-    private static JsonSerializerOptions JsonOptions() => new() { WriteIndented = true, PropertyNameCaseInsensitive = true, AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip };
+    private static JsonSerializerOptions JsonOptions() => new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 }
 
 public sealed class DiscordEmbed

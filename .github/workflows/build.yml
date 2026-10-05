@@ -236,10 +236,10 @@ jobs:
           # Modules may keep the source template as config.json or as
           # <ModuleName>.json next to the project file.
           CONFIG_SOURCE=""
-          if [ -f "$PROJDIR/config.json" ]; then
-            CONFIG_SOURCE="$PROJDIR/config.json"
-          elif [ -f "$PROJDIR/$MOD.json" ]; then
+          if [ -f "$PROJDIR/$MOD.json" ]; then
             CONFIG_SOURCE="$PROJDIR/$MOD.json"
+          elif [ -f "$PROJDIR/config.json" ]; then
+            CONFIG_SOURCE="$PROJDIR/config.json"
           fi
           if [ -n "$CONFIG_SOURCE" ]; then
             CONFIG_OUT="out/addons/counterstrikesharp/configs/plugins/$MOD"
