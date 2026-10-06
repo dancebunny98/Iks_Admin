@@ -886,21 +886,16 @@ public class Main : BasePlugin
     
     public override void OnAllPluginsLoaded(bool hotReload)
     {
-        foreach (var name in new[] { "CUserMessageSayText2", "CCSUsrMsg_SayText2", "SayText2" })
+        try
         {
-            try
-            {
-                _chatMessageId = UserMessage.FindIdByName(name);
-                HookUserMessage(_chatMessageId, FilterChatMessage, HookMode.Pre);
-                break;
-            }
-            catch (NativeException)
-            {
-                _chatMessageId = -1;
-            }
+            // UM_SayText2 is 118 in csgo/usermessages.proto.
+            HookUserMessage(118, FilterChatMessage, HookMode.Pre);
+            _chatMessageId = 118;
         }
-        if (_chatMessageId < 0)
-            Logger.LogError("Chat filter hook unavailable: SayText2 user message was not found");
+        catch (NativeException ex)
+        {
+            Logger.LogError(ex, "Chat filter hook unavailable");
+        }
         ResolveMenuApi();
         // MenuManagerCore may be loaded after IksAdmin. Keep resolving the
         // capability until it becomes available for the current map.
@@ -912,17 +907,23 @@ public class Main : BasePlugin
 
     private HookResult FilterChatMessage(UserMessage message)
     {
-        if (!message.ReadBool("chat") ||
-            !message.ReadString("messagename").TrimStart('#').StartsWith("Cstrike_Chat_", StringComparison.Ordinal))
+        if (!message.ReadString("messagename").TrimStart('#').StartsWith("Cstrike_Chat_", StringComparison.Ordinal))
             return HookResult.Continue;
+
+        var text = message.ReadString("param2");
+        var prefixIndex = 0;
+        while (prefixIndex < text.Length && (char.IsControl(text[prefixIndex]) || char.IsWhiteSpace(text[prefixIndex])))
+            prefixIndex++;
+        var isCommand = prefixIndex < text.Length && text[prefixIndex] is '!' or '/';
+        if (isCommand)
+            return HookResult.Stop;
 
         var player = Utilities.GetPlayerFromIndex(message.ReadInt("entityindex"));
         if (player == null || !player.IsValid || player.IsBot)
             return HookResult.Continue;
 
-        var text = message.ReadString("param2").TrimStart();
         var comms = player.GetComms();
-        if (text.StartsWith('!') || text.StartsWith('/') || comms.HasGag() || comms.HasSilence())
+        if (comms.HasGag() || comms.HasSilence())
             return HookResult.Stop;
 
         return HookResult.Continue;
