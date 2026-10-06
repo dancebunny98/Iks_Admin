@@ -5,5 +5,9 @@ public enum MenuType
     ChatMenu,
     ConsoleMenu,
     CenterMenu,
-    ButtonMenu
+    ButtonMenu,
+    MetamodMenu,
+    PanoramaMenu,
+    PanoramaWasdMenu,
+    CsgoMenu
 }

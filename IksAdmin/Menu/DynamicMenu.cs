@@ -59,10 +59,11 @@ public class DynamicMenu : IDynamicMenu
         ");
 
         IMenu menu = default!;
+        var managedMenu = Main.MenuApi != null && (Type == MenuType.Default || (int)Type >= (int)MenuType.ButtonMenu);
         switch ((int)Type)
         {
             case -1: // [MM]
-                menu = CreateMenu(MenuTitle(player));
+                menu = CreateMenu(MenuTitle(player), BackAction);
                 break;
             case 0:
                 menu = new ChatMenu(MenuTitle(player));
@@ -73,8 +74,8 @@ public class DynamicMenu : IDynamicMenu
             case 2:
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
                 break;
-            case 3: // [MM]
-                menu = CreateMenuForType(MenuTitle(player), (MenuManager.MenuType)Type);
+            case >= 3 and <= 7: // [MM]
+                menu = CreateMenuForType(MenuTitle(player), (MenuManager.MenuType)Type, BackAction);
                 break;
             default:
                 menu = new CenterHtmlMenu(MenuTitle(player), Main.AdminApi.Plugin);
@@ -92,7 +93,7 @@ public class DynamicMenu : IDynamicMenu
             return;
         }
 
-        if (BackAction != null) { // Отрисовка пункта 'Назад'
+        if (BackAction != null && !managedMenu) { // Fallback menus need an explicit Back item.
             Options.Insert(0, new DynamicMenuOption("back_btn", Main.AdminApi.Localizer["MenuOption.Other.Back"], (p, _) => {
                 BackAction.Invoke(p);
             }, null, false));
@@ -208,14 +209,14 @@ public class DynamicMenu : IDynamicMenu
 
     }
 
-    private static IMenu CreateMenu(string title)
+    private static IMenu CreateMenu(string title, Action<CCSPlayerController>? backAction)
     {
-        return Main.MenuApi?.GetMenu(title, null, null) ?? new ChatMenu(title);
+        return Main.MenuApi?.GetMenu(title, backAction, null) ?? new ChatMenu(title);
     }
 
-    private static IMenu CreateMenuForType(string title, MenuManager.MenuType type)
+    private static IMenu CreateMenuForType(string title, MenuManager.MenuType type, Action<CCSPlayerController>? backAction)
     {
-        return Main.MenuApi?.GetMenuForcetype(title, type, null, null) ?? new ChatMenu(title);
+        return Main.MenuApi?.GetMenuForcetype(title, type, backAction, null) ?? new ChatMenu(title);
     }
 
     private string MenuTitle(CCSPlayerController player)
