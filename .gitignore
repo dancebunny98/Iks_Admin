@@ -1,8 +1,10 @@
-/.idea
 bin/
 obj/
+dist/
 build-deps/
-
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
+.vs/
+.idea/
+*.user
+*.suo
+*.nupkg
+TestResults/

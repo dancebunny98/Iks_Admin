@@ -145,6 +145,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private readonly HashSet<string> _expiredSent = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _dispatchKeys = new(StringComparer.Ordinal);
     private string _dataPath = "";
+    private string _dispatchStatePath = "";
     private string _failedPath = "";
     private SemaphoreSlim _sendLock = new(1, 1);
 
@@ -162,9 +163,11 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     public override void InitializeCommands()
     {
         _dataPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "records.json");
+        _dispatchStatePath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "dispatch-state.json");
         _failedPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "failed-webhooks.jsonl");
         Directory.CreateDirectory(Path.GetDirectoryName(_dataPath)!);
         LoadRecords();
+        LoadDispatchState();
         Logger.LogInformation("[{Module}] loaded. Punishment webhook configured: {Configured}", ModuleName, !string.IsNullOrWhiteSpace(Config.Webhooks.Punishments));
 
         Api.RegisterPermission("discord_logs.report", Config.Permissions.Report);
@@ -289,6 +292,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         {
             expired = _records.Where(x => x.EndAt > 0 && x.EndAt <= AdminUtils.CurrentTimestamp() && x.RemovedAt == null)
                 .Where(x => _expiredSent.Add($"{x.EventType}:{x.SteamId}:{x.CreatedAt}:{x.EndAt}")).ToList();
+            if (expired.Count > 0)
+                SaveDispatchState();
         }
         foreach (var record in expired)
         {
@@ -555,6 +560,21 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         try { if (File.Exists(_dataPath)) _records.AddRange(JsonSerializer.Deserialize<List<PunishmentRecord>>(File.ReadAllText(_dataPath)) ?? []); }
         catch { }
+    }
+    private void LoadDispatchState()
+    {
+        try
+        {
+            if (!File.Exists(_dispatchStatePath)) return;
+            var sent = JsonSerializer.Deserialize<HashSet<string>>(File.ReadAllText(_dispatchStatePath), JsonOptions());
+            if (sent != null) _expiredSent.UnionWith(sent);
+        }
+        catch (Exception e) { Logger.LogWarning(e, "Failed to load Discord webhook dispatch state"); }
+    }
+    private void SaveDispatchState()
+    {
+        try { File.WriteAllText(_dispatchStatePath, JsonSerializer.Serialize(_expiredSent, JsonOptions())); }
+        catch (Exception e) { Logger.LogError(e, "Failed to save Discord webhook dispatch state"); }
     }
     private void SaveRecords()
     {
