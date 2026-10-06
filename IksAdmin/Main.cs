@@ -10,6 +10,7 @@ using CounterStrikeSharp.API.ValveConstants.Protobuf;
 using IksAdmin.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Timers;
+using CounterStrikeSharp.API.Modules.UserMessages;
 using IksAdmin.Menus;
 using Microsoft.Extensions.Logging;
 using CoreConfig = IksAdminApi.CoreConfig;
@@ -30,6 +31,7 @@ public class Main : BasePlugin
     public static List<CCSPlayerController> BlockTeamChange = new();
     public static Dictionary<string, bool> KickOnFullConnect = new();
     public static Dictionary<string, string> KickOnFullConnectReason = new();
+    private int _chatMessageId = -1;
 
     // INSTANT PUNISHMENT ON CONNECT
     public static Dictionary<string, PlayerComm> InstantComm = new();
@@ -884,6 +886,21 @@ public class Main : BasePlugin
     
     public override void OnAllPluginsLoaded(bool hotReload)
     {
+        foreach (var name in new[] { "CUserMessageSayText2", "CCSUsrMsg_SayText2", "SayText2" })
+        {
+            try
+            {
+                _chatMessageId = UserMessage.FindIdByName(name);
+                HookUserMessage(_chatMessageId, FilterChatMessage, HookMode.Pre);
+                break;
+            }
+            catch (NativeException)
+            {
+                _chatMessageId = -1;
+            }
+        }
+        if (_chatMessageId < 0)
+            Logger.LogError("Chat filter hook unavailable: SayText2 user message was not found");
         ResolveMenuApi();
         // MenuManagerCore may be loaded after IksAdmin. Keep resolving the
         // capability until it becomes available for the current map.
@@ -891,6 +908,24 @@ public class Main : BasePlugin
             MenuApi == null
                 ? TimerFlags.REPEAT | TimerFlags.STOP_ON_MAPCHANGE
                 : TimerFlags.STOP_ON_MAPCHANGE);
+    }
+
+    private HookResult FilterChatMessage(UserMessage message)
+    {
+        if (!message.ReadBool("chat") ||
+            !message.ReadString("messagename").TrimStart('#').StartsWith("Cstrike_Chat_", StringComparison.Ordinal))
+            return HookResult.Continue;
+
+        var player = Utilities.GetPlayerFromIndex(message.ReadInt("entityindex"));
+        if (player == null || !player.IsValid || player.IsBot)
+            return HookResult.Continue;
+
+        var text = message.ReadString("param2").TrimStart();
+        var comms = player.GetComms();
+        if (text.StartsWith('!') || text.StartsWith('/') || comms.HasGag() || comms.HasSilence())
+            return HookResult.Stop;
+
+        return HookResult.Continue;
     }
 
     private static void ResolveMenuApi()
@@ -990,6 +1025,8 @@ public class Main : BasePlugin
     
     public override void Unload(bool hotReload)
     {
+        if (_chatMessageId >= 0)
+            UnhookUserMessage(_chatMessageId, FilterChatMessage, HookMode.Pre);
         RemoveCommandListener("say", OnSay, HookMode.Pre);
         RemoveCommandListener("say_team", OnSay, HookMode.Pre);
         foreach (var commands in AdminApi.RegistredCommands)

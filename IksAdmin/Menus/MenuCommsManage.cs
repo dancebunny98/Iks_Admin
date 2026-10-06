@@ -189,7 +189,7 @@ public static class MenuCommsManage
             menu.AddMenuOption("cm_gag_sp_" + p.GetSteamId(), p.PlayerName + postfix, (_, _) =>
             {
                 OpenSelectSilenceReasonMenu(caller, new PlayerInfo(p), menu);
-            }, disabled: !_api.CanDoActionWithPlayer(caller.GetSteamId(), p.GetSteamId()) || p.GetComms().HasGag() || p.GetComms().HasMute() || p.GetComms().HasSilence());
+            }, disabled: !_api.CanDoActionWithPlayer(caller.GetSteamId(), p.GetSteamId()) || p.GetComms().HasSilence() || (p.GetComms().HasGag() && p.GetComms().HasMute()));
         }
         
         menu.Open(caller);
@@ -306,16 +306,11 @@ public static class MenuCommsManage
             if (reason.HideFromMenu) continue;
             if (reason.Duration != null)
             {
-                if (caller.Admin()!.MaxGagTime != 0 || caller.Admin()!.MaxMuteTime != 0)
-                {
-                    if (reason.Duration > caller.Admin()!.MaxGagTime || reason.Duration > caller.Admin()!.MaxMuteTime)
-                        continue;
-                }
-                if (caller.Admin()!.MinGagTime != 0 || caller.Admin()!.MaxGagTime != 0)
-                {
-                    if (reason.Duration < caller.Admin()!.MinGagTime || reason.Duration < caller.Admin()!.MinMuteTime)
-                        continue;
-                }
+                if ((caller.Admin()!.MaxGagTime != 0 && reason.Duration > caller.Admin()!.MaxGagTime) ||
+                    (caller.Admin()!.MaxMuteTime != 0 && reason.Duration > caller.Admin()!.MaxMuteTime) ||
+                    (caller.Admin()!.MinGagTime != 0 && reason.Duration < caller.Admin()!.MinGagTime) ||
+                    (caller.Admin()!.MinMuteTime != 0 && reason.Duration < caller.Admin()!.MinMuteTime))
+                    continue;
             }
             menu.AddMenuOption(reason.Title, reason.Title, (_, _) => {
                 if (reason.Duration == null)
@@ -478,16 +473,11 @@ public static class MenuCommsManage
         }, viewFlags: AdminUtils.GetCurrentPermissionFlags("comms_manage.own_silence_time"));
         foreach (var time in times)
         {
-            if (caller.Admin()!.MaxGagTime != 0 || caller.Admin()!.MaxMuteTime != 0)
-            {
-                if (time.Key > caller.Admin()!.MaxGagTime || time.Key > caller.Admin()!.MaxMuteTime)
-                    continue;
-            }
-            if (caller.Admin()!.MinGagTime != 0 || caller.Admin()!.MinMuteTime != 0)
-            {
-                if (time.Key < caller.Admin()!.MinGagTime || time.Key < caller.Admin()!.MinMuteTime)
-                    continue;
-            }
+            if ((caller.Admin()!.MaxGagTime != 0 && time.Key > caller.Admin()!.MaxGagTime) ||
+                (caller.Admin()!.MaxMuteTime != 0 && time.Key > caller.Admin()!.MaxMuteTime) ||
+                (caller.Admin()!.MinGagTime != 0 && time.Key < caller.Admin()!.MinGagTime) ||
+                (caller.Admin()!.MinMuteTime != 0 && time.Key < caller.Admin()!.MinMuteTime))
+                continue;
             if (reason.MinTime != 0 && time.Key > reason.MinTime * 60) {
                 continue;
             }

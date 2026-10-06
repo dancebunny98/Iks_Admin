@@ -1553,7 +1553,7 @@ public class AdminApi : IIksAdminApi
                 }
                 if (maxByDay != null)
                 {
-                    var lastPunishments = (await DBComms.GetLastAdminComms(admin, 60 * 60 * 24)).Where(x => x.MuteType == 1).ToList();
+                    var lastPunishments = (await DBComms.GetLastAdminComms(admin, 60 * 60 * 24)).Where(x => x.MuteType == 2).ToList();
                     if (lastPunishments.Count > maxByDayInt)
                     {
                         Helper.PrintToSteamId(admin.SteamId, AdminUtils.CoreApi.Localizer["Limitations.MaxByDayLimit"].Value
@@ -1567,6 +1567,15 @@ public class AdminApi : IIksAdminApi
             var existingComm = await GetActiveComms(comm.SteamId);
             if (existingComm != null && existingComm.Any(x => x.MuteType == comm.MuteType || x.MuteType == 2))
                 return new DBResult(null, 1, "Already banned");
+            if (existingComm != null)
+            {
+                if (existingComm.HasGag() && existingComm.HasMute())
+                    return new DBResult(null, 1, "Already banned");
+                if (existingComm.HasGag())
+                    return await AddMute(comm, announce);
+                if (existingComm.HasMute())
+                    return await AddGag(comm, announce);
+            }
             
             var onCommPre = OnCommPre?.Invoke(comm, ref announce) ?? HookResult.Continue;
             if (onCommPre != HookResult.Continue)
