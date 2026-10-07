@@ -22,7 +22,10 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     private volatile bool _storeReady;
     private readonly Dictionary<string, long> _lastViolation = new();
     private readonly Dictionary<ulong, string> _lastMessage = new();
-    private readonly Dictionary<string, Regex> _regexRules = new();
+    private readonly Dictionary<(string Pattern, bool CaseSensitive), Regex> _regexRules = new();
+    private static readonly Regex LinkRegex = new(@"(?:https?://|www\.)[^\s<>""']+",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromMilliseconds(100));
     private Dictionary<string, string> _translations = new();
 
     public ChatModerationConfig Config { get; set; } = new();
@@ -107,17 +110,20 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         _regexRules.Clear();
         foreach (var rule in Config.Rules.Where(x => x.Enabled && x.MatchType.Equals("Regex", StringComparison.OrdinalIgnoreCase)))
         {
-            if (string.IsNullOrWhiteSpace(rule.Id) || string.IsNullOrWhiteSpace(rule.Pattern)) continue;
-            try
+            foreach (var pattern in new[] { rule.Pattern }.Concat(rule.Patterns).Concat(rule.Allowlist)
+                         .Where(x => !string.IsNullOrWhiteSpace(x)))
             {
-                var options = RegexOptions.CultureInvariant | RegexOptions.Compiled;
-                if (!rule.CaseSensitive) options |= RegexOptions.IgnoreCase;
-                _regexRules[rule.Id] = new Regex(rule.Pattern, options,
-                    TimeSpan.FromMilliseconds(Math.Clamp(Config.RegexTimeoutMilliseconds, 1, 1000)));
-            }
-            catch (ArgumentException ex)
-            {
-                Logger.LogWarning(ex, "Invalid chat rule regex {RuleId}.", rule.Id);
+                try
+                {
+                    var options = RegexOptions.CultureInvariant | RegexOptions.Compiled;
+                    if (!rule.CaseSensitive) options |= RegexOptions.IgnoreCase;
+                    _regexRules[(pattern, rule.CaseSensitive)] = new Regex(pattern, options,
+                        TimeSpan.FromMilliseconds(Math.Clamp(Config.RegexTimeoutMilliseconds, 1, 1000)));
+                }
+                catch (ArgumentException ex)
+                {
+                    Logger.LogWarning(ex, "Invalid chat rule regex {RuleId}: {Pattern}.", rule.Id, pattern);
+                }
             }
         }
     }
@@ -168,12 +174,18 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     private bool Matches(ChatRule rule, string message, ulong steamId)
     {
         var comparison = rule.CaseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-        switch (rule.MatchType.ToLowerInvariant())
+        var matchType = rule.MatchType.ToLowerInvariant();
+        if (matchType == "domain") return MatchesDomain(rule, message);
+        if (matchType is "contains" or "exact" or "startswith" or "endswith" or "regex")
         {
-            case "contains": return rule.Pattern.Length > 0 && message.Contains(rule.Pattern, comparison);
-            case "exact": return rule.Pattern.Length > 0 && message.Equals(rule.Pattern, comparison);
-            case "startswith": return rule.Pattern.Length > 0 && message.StartsWith(rule.Pattern, comparison);
-            case "endswith": return rule.Pattern.Length > 0 && message.EndsWith(rule.Pattern, comparison);
+            var allowed = rule.Allowlist.SelectMany(pattern => MatchRanges(matchType, pattern, message, comparison,
+                rule.CaseSensitive)).ToArray();
+            return new[] { rule.Pattern }.Concat(rule.Patterns)
+                .SelectMany(pattern => MatchRanges(matchType, pattern, message, comparison, rule.CaseSensitive))
+                .Any(blocked => !allowed.Any(x => x.Start <= blocked.Start && x.End >= blocked.End));
+        }
+        switch (matchType)
+        {
             case "length": return rule.Threshold > 0 && message.Length >= rule.Threshold;
             case "duplicate": return _lastMessage.TryGetValue(steamId, out var previous) && message.Equals(previous, comparison);
             case "repeat":
@@ -188,11 +200,73 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 var letters = message.Count(char.IsLetter);
                 return letters >= Math.Max(1, rule.MinLength) &&
                     letters > 0 && message.Count(char.IsUpper) * 100 / letters >= Math.Clamp(rule.Threshold, 1, 100);
-            case "regex":
-                try { return _regexRules.TryGetValue(rule.Id, out var regex) && regex.IsMatch(message); }
-                catch (RegexMatchTimeoutException) { return false; }
             default: return false;
         }
+    }
+
+    private IEnumerable<(int Start, int End)> MatchRanges(string type, string pattern, string message,
+        StringComparison comparison, bool caseSensitive)
+    {
+        if (string.IsNullOrWhiteSpace(pattern)) yield break;
+        switch (type)
+        {
+            case "contains":
+                for (var start = 0; start < message.Length;)
+                {
+                    var index = message.IndexOf(pattern, start, comparison);
+                    if (index < 0) break;
+                    yield return (index, index + pattern.Length);
+                    start = index + 1;
+                }
+                break;
+            case "exact":
+                if (message.Equals(pattern, comparison)) yield return (0, message.Length);
+                break;
+            case "startswith":
+                if (message.StartsWith(pattern, comparison)) yield return (0, pattern.Length);
+                break;
+            case "endswith":
+                if (message.EndsWith(pattern, comparison)) yield return (message.Length - pattern.Length, message.Length);
+                break;
+            case "regex":
+                if (_regexRules.TryGetValue((pattern, caseSensitive), out var regex))
+                {
+                    Match[] matches;
+                    try { matches = regex.Matches(message).Cast<Match>().ToArray(); }
+                    catch (RegexMatchTimeoutException) { break; }
+                    for (var i = 0; i < matches.Length; i++)
+                        yield return (matches[i].Index, matches[i].Index + matches[i].Length);
+                }
+                break;
+        }
+    }
+
+    private static bool MatchesDomain(ChatRule rule, string message)
+    {
+        try
+        {
+            foreach (Match link in LinkRegex.Matches(message))
+            {
+                var url = link.Value.TrimEnd('.', ',', ';', ':', '!', '?', ')', ']');
+                if (!Uri.TryCreate(url.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? "https://" + url : url,
+                        UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) continue;
+                var host = uri.IdnHost;
+                if (rule.Allowlist.Any(domain => DomainMatches(host, domain))) continue;
+                if (DomainMatches(host, rule.Pattern) || rule.Patterns.Any(domain => DomainMatches(host, domain)))
+                    return true;
+            }
+        }
+        catch (RegexMatchTimeoutException) { }
+        return false;
+    }
+
+    private static bool DomainMatches(string host, string pattern)
+    {
+        pattern = pattern.Trim().TrimEnd('.');
+        if (pattern == "*") return true;
+        if (pattern.Length == 0 || pattern.Contains('/') || pattern.Contains(':')) return false;
+        return host.Equals(pattern, StringComparison.OrdinalIgnoreCase) ||
+               host.EndsWith("." + pattern, StringComparison.OrdinalIgnoreCase);
     }
 
     private void HandleAutomaticViolation(CCSPlayerController player, ulong steamId, string message, ChatRule rule)
@@ -209,17 +283,42 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             Message = message[..Math.Min(message.Length, Math.Clamp(Config.MaxStoredMessageLength, 0, 500))],
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
         };
-        if (rule.AddWarning && _storeReady)
+        if (rule.AddWarning && _storeReady &&
+            !rule.Action.Equals("Mute", StringComparison.OrdinalIgnoreCase) &&
+            !rule.Action.Equals("Ban", StringComparison.OrdinalIgnoreCase))
             _ = SaveWarningAsync(warning, null, null);
-        if (rule.Action.Equals("Gag", StringComparison.OrdinalIgnoreCase) && rule.GagMinutes >= 0 &&
-            Api.ThisServer is not null)
+        if (Api.ThisServer is null) return;
+        var action = rule.Action.ToLowerInvariant();
+        if ((action == "gag" && rule.GagMinutes >= 0) || (action == "mute" && rule.MuteMinutes >= 0))
         {
-            var comm = new PlayerComm(new PlayerInfo(player), PlayerComm.MuteTypes.MuteChat,
-                reason, rule.GagMinutes, Api.ThisServer.Id) { AdminId = Api.ConsoleAdmin.Id };
+            var comm = new PlayerComm(new PlayerInfo(player),
+                action == "mute" ? PlayerComm.MuteTypes.MuteAll : PlayerComm.MuteTypes.MuteChat,
+                reason, action == "mute" ? rule.MuteMinutes : rule.GagMinutes, Api.ThisServer.Id)
+                { AdminId = Api.ConsoleAdmin.Id };
             _ = Task.Run(async () =>
             {
-                try { await Api.AddComm(comm); }
-                catch (Exception ex) { Logger.LogError(ex, "Could not apply automatic gag."); }
+                try
+                {
+                    var result = await Api.AddComm(comm);
+                    if (result.QueryStatus != 0)
+                        Logger.LogWarning("Automatic chat mute failed for rule {RuleId}: {Status}.", rule.Id, result.QueryStatus);
+                }
+                catch (Exception ex) { Logger.LogError(ex, "Could not apply automatic chat mute."); }
+            });
+        }
+        else if (action == "ban" && rule.BanMinutes >= 0)
+        {
+            var ban = new PlayerBan(new PlayerInfo(player), reason[..Math.Min(reason.Length, 250)],
+                rule.BanMinutes, Api.ThisServer.Id) { AdminId = Api.ConsoleAdmin.Id };
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var result = await Api.AddBan(ban);
+                    if (result.QueryStatus != 0)
+                        Logger.LogWarning("Automatic chat ban failed for rule {RuleId}: {Status}.", rule.Id, result.QueryStatus);
+                }
+                catch (Exception ex) { Logger.LogError(ex, "Could not apply automatic chat ban."); }
             });
         }
     }

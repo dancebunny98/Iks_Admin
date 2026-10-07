@@ -21,7 +21,7 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public int RegexTimeoutMilliseconds { get; set; } = 50;
     public List<ChatRule> Rules { get; set; } =
     [
-        new() { Id = "links", Reason = "reason_advertising", MatchType = "Regex", Pattern = @"(?i)\b(?:https?://|www\.)\S+", Action = "Warn", BlockMessage = true },
+        new() { Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*", Action = "Warn", BlockMessage = true },
         new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false },
         new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false }
     ];
@@ -34,6 +34,8 @@ public sealed class ChatRule
     public string Reason { get; set; } = "Chat rule violation";
     public string MatchType { get; set; } = "Contains";
     public string Pattern { get; set; } = "";
+    public List<string> Patterns { get; set; } = [];
+    public List<string> Allowlist { get; set; } = [];
     public bool CaseSensitive { get; set; } = false;
     public int MinLength { get; set; } = 0;
     public int Threshold { get; set; } = 0;
@@ -43,5 +45,7 @@ public sealed class ChatRule
     public bool BlockMessage { get; set; } = true;
     public bool AddWarning { get; set; } = true;
     public int GagMinutes { get; set; } = 10;
+    public int MuteMinutes { get; set; } = 10;
+    public int BanMinutes { get; set; } = 60;
     public int CooldownSeconds { get; set; } = 5;
 }

@@ -19,8 +19,10 @@
       "Id": "links",
       "Enabled": true,
       "Reason": "reason_advertising",
-      "MatchType": "Regex",
-      "Pattern": "(?i)\\b(?:https?://|www\\.)\\S+",
+      "MatchType": "Domain",
+      "Pattern": "*",
+      "Patterns": [],
+      "Allowlist": [],
       "CaseSensitive": false,
       "MinLength": 0,
       "Threshold": 0,
@@ -30,6 +32,8 @@
       "BlockMessage": true,
       "AddWarning": true,
       "GagMinutes": 10,
+      "MuteMinutes": 10,
+      "BanMinutes": 60,
       "CooldownSeconds": 5
     },
     {
@@ -38,6 +42,8 @@
       "Reason": "reason_caps",
       "MatchType": "Caps",
       "Pattern": "",
+      "Patterns": [],
+      "Allowlist": [],
       "CaseSensitive": false,
       "MinLength": 12,
       "Threshold": 80,
@@ -47,6 +53,8 @@
       "BlockMessage": false,
       "AddWarning": true,
       "GagMinutes": 10,
+      "MuteMinutes": 10,
+      "BanMinutes": 60,
       "CooldownSeconds": 5
     },
     {
@@ -55,6 +63,8 @@
       "Reason": "reason_repeat",
       "MatchType": "Repeat",
       "Pattern": "",
+      "Patterns": [],
+      "Allowlist": [],
       "CaseSensitive": false,
       "MinLength": 0,
       "Threshold": 8,
@@ -64,6 +74,8 @@
       "BlockMessage": false,
       "AddWarning": true,
       "GagMinutes": 10,
+      "MuteMinutes": 10,
+      "BanMinutes": 60,
       "CooldownSeconds": 5
     }
   ]
