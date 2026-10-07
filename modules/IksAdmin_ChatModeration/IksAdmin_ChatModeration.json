@@ -23,6 +23,7 @@
       "Pattern": "*",
       "Patterns": [],
       "Allowlist": [],
+      "AllowedUrls": [],
       "CaseSensitive": false,
       "MinLength": 0,
       "Threshold": 0,

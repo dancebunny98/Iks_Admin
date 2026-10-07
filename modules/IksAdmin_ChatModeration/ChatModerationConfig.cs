@@ -36,6 +36,7 @@ public sealed class ChatRule
     public string Pattern { get; set; } = "";
     public List<string> Patterns { get; set; } = [];
     public List<string> Allowlist { get; set; } = [];
+    public List<string> AllowedUrls { get; set; } = [];
     public bool CaseSensitive { get; set; } = false;
     public int MinLength { get; set; } = 0;
     public int Threshold { get; set; } = 0;

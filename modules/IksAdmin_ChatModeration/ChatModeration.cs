@@ -251,7 +251,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 if (!Uri.TryCreate(url.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? "https://" + url : url,
                         UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https")) continue;
                 var host = uri.IdnHost;
-                if (rule.Allowlist.Any(domain => DomainMatches(host, domain))) continue;
+                if (rule.Allowlist.Any(domain => DomainMatches(host, domain)) ||
+                    rule.AllowedUrls.Any(allowed => UrlMatches(uri, allowed))) continue;
                 if (DomainMatches(host, rule.Pattern) || rule.Patterns.Any(domain => DomainMatches(host, domain)))
                     return true;
             }
@@ -267,6 +268,14 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         if (pattern.Length == 0 || pattern.Contains('/') || pattern.Contains(':')) return false;
         return host.Equals(pattern, StringComparison.OrdinalIgnoreCase) ||
                host.EndsWith("." + pattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool UrlMatches(Uri link, string allowed)
+    {
+        if (!Uri.TryCreate(allowed.Contains("://", StringComparison.Ordinal) ? allowed : "https://" + allowed,
+                UriKind.Absolute, out var expected) || expected.Scheme is not ("http" or "https")) return false;
+        return link.IdnHost.Equals(expected.IdnHost, StringComparison.OrdinalIgnoreCase) &&
+               link.AbsolutePath.Equals(expected.AbsolutePath, StringComparison.Ordinal);
     }
 
     private void HandleAutomaticViolation(CCSPlayerController player, ulong steamId, string message, ChatRule rule)
