@@ -107,9 +107,16 @@ public static class DB
                 create table if not exists iks_admins_warns(
                     id int not null auto_increment primary key,
                     admin_id int not null,
-                    target_id int not null,
+                    target_id int default null,
+                    target_steam_id bigint unsigned default null,
+                    target_name varchar(128) default null,
+                    source varchar(32) default null,
+                    rule_id varchar(64) default null,
+                    message varchar(512) default null,
+                    issued_steam_id bigint unsigned default null,
+                    revoked_by_steam_id bigint unsigned default null,
                     duration int not null,
-                    reason varchar(128) not null,
+                    reason varchar(255) not null,
                     created_at int not null,
                     end_at int not null,
                     updated_at int not null,
@@ -117,7 +124,8 @@ public static class DB
                     deleted_by int default null,
                     foreign key (admin_id) references iks_admins(id),
                     foreign key (target_id) references iks_admins(id),
-                    foreign key (deleted_by) references iks_admins(id)
+                    foreign key (deleted_by) references iks_admins(id),
+                    index idx_iks_warns_target_steam (target_steam_id, deleted_at, created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;
                 create table if not exists iks_groups_limitations( 
                     id int not null auto_increment primary key,

@@ -30,7 +30,8 @@ public static class DBWarns
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
             where 
-            (deleted_at is null or deleted_by is null)
+            target_id is not null
+            and deleted_at is null
             and (end_at > unix_timestamp() or end_at=0)
             ")).ToList();
             return warns;
@@ -49,6 +50,7 @@ public static class DBWarns
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
+            where target_id is not null
             ")).ToList();
             return warns;
         }
@@ -158,6 +160,7 @@ public static class DBWarns
             {WarnSelect}
             where 
             admin_id=@id and
+            target_id is not null and
             deleted_at is null
             and (end_at > unix_timestamp() or end_at=0)
             ", new {id})).ToList();

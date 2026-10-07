@@ -72,6 +72,8 @@ public interface IIksAdminApi
     public IDynamicMenuOption CreateMenuOption(string id, string title, Action<CCSPlayerController, IDynamicMenuOption> onExecute, MenuColors? color = null, bool disabled = false, string viewFlags = "*");
     public IDynamicMenu CreateMenu(string id, string title, MenuType? type = null, MenuColors titleColor = MenuColors.Default, PostSelectAction postSelectAction = PostSelectAction.Nothing, Action<CCSPlayerController>? backAction = null, IDynamicMenu? backMenu = null);
     public void CloseMenu(CCSPlayerController player);
+    public void Notify(CCSPlayerController player, string title, string message,
+        AdminNotice notice = AdminNotice.Success);
     // FUNC ===
     public void ApplyCommForPlayer(PlayerComm comm);
     public void RemoveCommFromPlayer(PlayerComm comm);

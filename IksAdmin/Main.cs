@@ -962,7 +962,7 @@ public class Main : BasePlugin
     }
     
     [GameEventHandler]
-    public HookResult OnRoundStart(EventRoundEnd @event, GameEventInfo info)
+    public HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
         AdminApi.RoundCooldowns.Clear();
         return HookResult.Continue;

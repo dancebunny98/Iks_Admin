@@ -54,6 +54,7 @@
       <LanguageFiles Include="$(MSBuildProjectDirectory)\lang\**\*" />
       <ConfigFiles Include="$(MSBuildProjectDirectory)\configs\**\*" />
       <SortMenuConfigFile Include="$(MSBuildProjectDirectory)\sortmenus.json" />
+      <PluginReadme Include="$(MSBuildProjectDirectory)\README.md" />
     </ItemGroup>
 
     <MakeDir Directories="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)" />
@@ -74,6 +75,9 @@
           DestinationFolder="$(OutputPath)\bundle\configs\plugins\$(MSBuildProjectName)\%(RecursiveDir)"
           SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(SortMenuConfigFile)"
+          DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(PluginReadme)"
           DestinationFolder="$(OutputPath)\bundle\plugins\$(MSBuildProjectName)"
           SkipUnchangedFiles="true" />
   </Target>

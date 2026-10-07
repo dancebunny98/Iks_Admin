@@ -151,6 +151,7 @@ jobs:
           - IksAdmin_Maps
           - IksAdmin_CustomMenus
           - IksAdmin_DiscordPunishments
+          - IksAdmin_ChatModeration
     steps:
       - uses: actions/checkout@v5
 
@@ -225,8 +226,13 @@ jobs:
           fi
 
           BIN=$(dirname "$DLL")
-          find "$BIN" -maxdepth 1 -name "*.dll" -exec cp {} "$OUT"/ \;
-          find "$BIN" -maxdepth 1 -name "*.pdb" -exec cp {} "$OUT"/ \;
+          if [ "$MOD" = "IksAdmin_ChatModeration" ]; then
+            cp "$BIN/$MOD.dll" "$BIN/Dapper.dll" "$BIN/MySqlConnector.dll" "$OUT"/
+            [ -f "$BIN/$MOD.pdb" ] && cp "$BIN/$MOD.pdb" "$OUT"/ || true
+          else
+            find "$BIN" -maxdepth 1 -name "*.dll" -exec cp {} "$OUT"/ \;
+            find "$BIN" -maxdepth 1 -name "*.pdb" -exec cp {} "$OUT"/ \;
+          fi
 
           for dep in $SHARED_DLLS; do
             f="$OUT/$dep"
@@ -236,6 +242,10 @@ jobs:
           if [ -d "$PROJDIR/lang" ]; then
             mkdir -p "$OUT/lang"
             cp "$PROJDIR"/lang/*.json "$OUT/lang"/ 2>/dev/null || true
+          fi
+
+          if [ -f "$PROJDIR/README.md" ]; then
+            cp "$PROJDIR/README.md" "$OUT/README.md"
           fi
 
           # IPluginConfig loads this file from configs/plugins/<module>/<module>.json.

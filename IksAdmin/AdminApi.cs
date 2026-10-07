@@ -24,6 +24,26 @@ namespace IksAdmin;
 
 public class AdminApi : IIksAdminApi
 {
+    public void Notify(CCSPlayerController player, string title, string message,
+        AdminNotice notice = AdminNotice.Success)
+    {
+        if (!player.IsValid) return;
+        var menuApi = Main.MenuApi;
+        if (menuApi?.GetMenuType(player) == MenuManager.MenuType.PanoramaMenu)
+        {
+            var plain = new string(message.Where(c => !char.IsControl(c)).ToArray());
+            menuApi.Notify(player, title, plain, notice switch
+            {
+                AdminNotice.Warning => MenuManager.MenuNotice.Warning,
+                AdminNotice.Error => MenuManager.MenuNotice.Error,
+                _ => MenuManager.MenuNotice.Success
+            });
+        }
+        else
+        {
+            player.PrintToChat(message);
+        }
+    }
 
     // V 19
     public Dictionary<ulong, Dictionary<string, RoundCooldownData>> RoundCooldowns = [];
