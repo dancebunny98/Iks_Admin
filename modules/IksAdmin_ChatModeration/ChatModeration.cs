@@ -22,6 +22,9 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     private WarningStore? _store;
     private volatile bool _storeReady;
     private readonly Dictionary<string, long> _lastViolation = new();
+    private readonly Dictionary<(ulong SteamId, string RuleId), ViolationState> _violationStates = new();
+    private readonly Dictionary<ulong, string> _lastMatchedRule = new();
+    private readonly SemaphoreSlim _warningSaveGate = new(1, 1);
     private readonly Dictionary<ulong, string> _lastMessage = new();
     private readonly Dictionary<(string Pattern, bool CaseSensitive), Regex> _regexRules = new();
     private static readonly Regex LinkRegex = new(@"(?:https?://|www\.)[^\s<>""']+",
@@ -91,7 +94,14 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         {
             var player = Utilities.GetPlayerFromSlot(slot);
             if (player?.AuthorizedSteamID is not null)
+            {
                 _lastMessage.Remove(player.AuthorizedSteamID.SteamId64);
+                _lastMatchedRule.Remove(player.AuthorizedSteamID.SteamId64);
+                foreach (var key in _violationStates.Keys.Where(x => x.SteamId == player.AuthorizedSteamID.SteamId64).ToArray())
+                    _violationStates.Remove(key);
+                foreach (var key in _lastViolation.Keys.Where(x => x.StartsWith($"{player.AuthorizedSteamID.SteamId64}:", StringComparison.Ordinal)).ToArray())
+                    _lastViolation.Remove(key);
+            }
         });
     }
 
@@ -135,6 +145,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 }
             }
         }
+        foreach (var rule in Config.Rules.Where(x => x.Enabled && x.Action.Equals("Ban", StringComparison.OrdinalIgnoreCase)))
+            Logger.LogWarning("Chat rule {RuleId} uses unsupported automatic Ban action; the rule is disabled.", rule.Id);
     }
 
     private HookResult OnSay(CCSPlayerController? player, CommandInfo command)
@@ -160,24 +172,50 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         foreach (var rule in Config.Rules)
         {
             if (!rule.Enabled || (team ? !rule.CheckTeamChat : !rule.CheckPublicChat) ||
-                rule.Action.Equals("Ignore", StringComparison.OrdinalIgnoreCase)) continue;
+                rule.Action.Equals("Ignore", StringComparison.OrdinalIgnoreCase) ||
+                rule.Action.Equals("Ban", StringComparison.OrdinalIgnoreCase)) continue;
             if (message.Length < rule.MinLength || !Matches(rule, message, steamId)) continue;
-            var key = $"{steamId}:{rule.Id}";
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (_lastViolation.Count > 10000)
-            {
-                foreach (var expired in _lastViolation.Where(x => now - x.Value > 3600).Select(x => x.Key).ToArray())
-                    _lastViolation.Remove(expired);
-            }
-            if (_lastViolation.TryGetValue(key, out var previous) && now - previous < Math.Max(0, rule.CooldownSeconds))
-                return rule.BlockMessage ? HookResult.Stop : HookResult.Continue;
-            _lastViolation[key] = now;
+            var issueWarning = TrackViolation(steamId, rule, now);
             _lastMessage[steamId] = message;
-            HandleAutomaticViolation(player, steamId, message, rule);
+            HandleAutomaticViolation(player, steamId, message, rule, issueWarning, now);
             return rule.BlockMessage ? HookResult.Stop : HookResult.Continue;
         }
+        _lastMatchedRule.Remove(steamId);
         _lastMessage[steamId] = message;
         return HookResult.Continue;
+    }
+
+    private bool TrackViolation(ulong steamId, ChatRule rule, long now)
+    {
+        var key = (steamId, rule.Id);
+        if (!_violationStates.TryGetValue(key, out var state))
+            _violationStates[key] = state = new ViolationState();
+        if (!_lastMatchedRule.TryGetValue(steamId, out var previousRule) || previousRule != rule.Id ||
+            now - state.LastAt > Math.Max(1, rule.ConsecutiveGapSeconds))
+            state.Consecutive = 0;
+        _lastMatchedRule[steamId] = rule.Id;
+        state.Consecutive++;
+        state.LastAt = now;
+        var window = Math.Max(1, rule.WarningWindowSeconds);
+        while (state.Recent.Count > 0 && now - state.Recent.Peek() > window)
+            state.Recent.Dequeue();
+        state.Recent.Enqueue(now);
+        var reached = rule.WarningAfterConsecutive > 0 && state.Consecutive >= rule.WarningAfterConsecutive ||
+                      rule.WarningAfterWindowCount > 0 && state.Recent.Count >= rule.WarningAfterWindowCount;
+        if (!reached || now - state.LastWarningAt < Math.Max(0, rule.CooldownSeconds)) return false;
+        state.Consecutive = 0;
+        state.Recent.Clear();
+        state.LastWarningAt = now;
+        return true;
+    }
+
+    private sealed class ViolationState
+    {
+        public int Consecutive;
+        public long LastAt;
+        public long LastWarningAt;
+        public Queue<long> Recent { get; } = new();
     }
 
     private bool Matches(ChatRule rule, string message, ulong steamId)
@@ -287,26 +325,34 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                link.AbsolutePath.Equals(expected.AbsolutePath, StringComparison.Ordinal);
     }
 
-    private void HandleAutomaticViolation(CCSPlayerController player, ulong steamId, string message, ChatRule rule)
+    private void HandleAutomaticViolation(CCSPlayerController player, ulong steamId, string message, ChatRule rule,
+        bool issueWarning, long now)
     {
         var reason = Reason(rule);
-        player.PrintToChat(T("rule_violated", reason));
-        var warning = new PlayerWarning
+        var key = $"{steamId}:{rule.Id}";
+        var canAct = !_lastViolation.TryGetValue(key, out var previous) ||
+                     now - previous >= Math.Max(0, rule.CooldownSeconds);
+        if (canAct)
         {
-            SteamId = steamId,
-            PlayerName = player.PlayerName,
-            Reason = rule.Reason,
-            Source = "automatic",
-            RuleId = rule.Id[..Math.Min(rule.Id.Length, 64)],
-            Message = message[..Math.Min(message.Length, Math.Clamp(Config.MaxStoredMessageLength, 0, 500))],
-            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            IssuedImmunity = Api.ConsoleAdmin?.CurrentImmunity
-        };
-        if (rule.AddWarning && _storeReady &&
-            !rule.Action.Equals("Mute", StringComparison.OrdinalIgnoreCase) &&
-            !rule.Action.Equals("Ban", StringComparison.OrdinalIgnoreCase))
-            _ = SaveWarningAsync(warning, null, null);
-        if (Api.ThisServer is null) return;
+            _lastViolation[key] = now;
+            player.PrintToChat(T("rule_violated", reason));
+        }
+        if (issueWarning && rule.AddWarning && _storeReady)
+        {
+            var warning = new PlayerWarning
+            {
+                SteamId = steamId,
+                PlayerName = player.PlayerName,
+                Reason = rule.Reason,
+                Source = "automatic",
+                RuleId = rule.Id[..Math.Min(rule.Id.Length, 64)],
+                Message = message[..Math.Min(message.Length, Math.Clamp(Config.MaxStoredMessageLength, 0, 500))],
+                CreatedAt = now,
+                IssuedImmunity = Api.ConsoleAdmin?.CurrentImmunity
+            };
+            _ = SaveWarningAsync(warning, null, new PlayerInfo(player));
+        }
+        if (!canAct || Api.ThisServer is null) return;
         var action = rule.Action.ToLowerInvariant();
         if ((action == "gag" && rule.GagMinutes >= 0) || (action == "mute" && rule.MuteMinutes >= 0))
         {
@@ -325,57 +371,46 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 catch (Exception ex) { Logger.LogError(ex, "Could not apply automatic chat mute."); }
             });
         }
-        else if (action == "ban" && rule.BanMinutes >= 0)
-        {
-            var ban = new PlayerBan(new PlayerInfo(player), reason[..Math.Min(reason.Length, 250)],
-                rule.BanMinutes, Api.ThisServer.Id) { AdminId = Api.ConsoleAdmin.Id };
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var result = await Api.AddBan(ban);
-                    if (result.QueryStatus != 0)
-                        Logger.LogWarning("Automatic chat ban failed for rule {RuleId}: {Status}.", rule.Id, result.QueryStatus);
-                }
-                catch (Exception ex) { Logger.LogError(ex, "Could not apply automatic chat ban."); }
-            });
-        }
     }
 
     private async Task SaveWarningAsync(PlayerWarning warning, CCSPlayerController? moderator, PlayerInfo? target)
     {
         // Database operations may yield; player and menu updates must return to the game thread.
+        warning.AdminId = moderator?.Admin()?.Id ?? Api.ConsoleAdmin?.Id ?? 0;
+        await _warningSaveGate.WaitAsync();
         try
         {
-            warning.AdminId = moderator?.Admin()?.Id ?? Api.ConsoleAdmin?.Id ?? 0;
             warning.Id = await _store!.AddAsync(warning);
             Server.NextFrame(() => PublishWarningEvent("chat_warning_created", warning));
             var active = await _store.ActiveAsync(warning.SteamId);
-            if (Api.AllAdmins.Any(x => x.USteamId == warning.SteamId))
-                await Api.ReloadDataFromDb();
-            var countable = active.Where(x => !x.Reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase)).ToList();
+            var escalation = Config.WarningEscalation;
+            var countable = active.Where(x => !x.IsAdminWarning &&
+                !x.Reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase) &&
+                (x.Source == "automatic" ? escalation.CountAutomaticWarnings : escalation.CountManualWarnings)).ToList();
+            var thresholdReached = countable.Any(x => x.Id == warning.Id) &&
+                                   escalation.Enabled && escalation.WarningThreshold > 0 &&
+                                   countable.Count == escalation.WarningThreshold;
             Server.NextFrame(() =>
             {
                 var recipient = PlayersUtils.GetControllerBySteamId(warning.SteamId);
                 var displayedReason = _translations.GetValueOrDefault(warning.Reason, warning.Reason);
                 if (recipient is { IsValid: true })
-                    Api.Notify(recipient, T("menu_main"), Config.BanSuggestionThreshold > 0
-                        ? T("warn_received", countable.Count, Config.BanSuggestionThreshold, displayedReason)
+                    Api.Notify(recipient, T("menu_main"), escalation.WarningThreshold > 0
+                        ? T("warn_received", countable.Count, escalation.WarningThreshold, displayedReason)
                         : T("warn_received_no_threshold", countable.Count, displayedReason), AdminNotice.Warning);
                 if (moderator is { IsValid: true })
-                {
                     Api.Notify(moderator, T("menu_main"), T("warn_saved", countable.Count));
-                    if (Config.BanSuggestionThreshold > 0 && countable.Count >= Config.BanSuggestionThreshold && target is not null)
-                        ShowBanPrompt(moderator, target, countable);
-                }
-                else if (Config.NotifyModeratorsAtThreshold && Config.BanSuggestionThreshold > 0 &&
-                    countable.Count == Config.BanSuggestionThreshold)
+                if (thresholdReached && target is not null)
+                    ApplyThresholdMute(target, countable);
+                if (Config.NotifyModeratorsAtThreshold && thresholdReached)
                 {
                     foreach (var admin in PlayersUtils.GetOnlinePlayers().Where(x => x.HasPermissions(ReviewPermission)))
                         Api.Notify(admin, T("menu_main"), T("threshold_notice", warning.PlayerName, countable.Count),
                             AdminNotice.Warning);
                 }
             });
+            if (Api.AllAdmins.Any(x => x.USteamId == warning.SteamId))
+                await Api.ReloadDataFromDb();
         }
         catch (Exception ex)
         {
@@ -383,6 +418,47 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             if (moderator is not null) Server.NextFrame(() => Api.Notify(moderator, T("menu_main"),
                 T("storage_error"), AdminNotice.Error));
         }
+        finally { _warningSaveGate.Release(); }
+    }
+
+    private void ApplyThresholdMute(PlayerInfo target, List<PlayerWarning> warnings)
+    {
+        if (Api.ThisServer is null) return;
+        var escalation = Config.WarningEscalation;
+        var advertising = warnings.Any(x => WarningSeverity(x).Advertising);
+        var severity = warnings.Max(x => WarningSeverity(x).Severity);
+        var minutes = advertising && escalation.AdvertisingPermanent ? 0 : severity switch
+        {
+            1 => escalation.LowMuteMinutes,
+            2 => escalation.MediumMuteMinutes,
+            _ => escalation.HighMuteMinutes
+        };
+        if (minutes < 0) return;
+        var reason = T("mute_reason", warnings.Count);
+        var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteChat, reason, minutes, Api.ThisServer.Id)
+            { AdminId = Api.ConsoleAdmin.Id };
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var result = await Api.AddComm(comm);
+                if (result.QueryStatus != 0)
+                    Logger.LogWarning("Automatic chat mute after {Count} warnings failed: {Status}.", warnings.Count, result.QueryStatus);
+            }
+            catch (Exception ex) { Logger.LogError(ex, "Could not apply warning threshold chat mute."); }
+        });
+    }
+
+    private (int Severity, bool Advertising) WarningSeverity(PlayerWarning warning)
+    {
+        var rule = Config.Rules.FirstOrDefault(x => x.Id == warning.RuleId && warning.RuleId.Length > 0);
+        if (rule is not null) return (Math.Clamp(rule.Severity, 1, 3), rule.Advertising);
+        var reason = Config.WarningReasons.FirstOrDefault(x => x.Text.Equals(warning.Reason, StringComparison.OrdinalIgnoreCase));
+        if (reason is not null) return (Math.Clamp(reason.Severity, 1, 3), reason.Advertising);
+        rule = Config.Rules.FirstOrDefault(x => x.Reason.Equals(warning.Reason, StringComparison.OrdinalIgnoreCase));
+        return rule is null
+            ? (Math.Clamp(Config.WarningEscalation.DefaultSeverity, 1, 3), false)
+            : (Math.Clamp(rule.Severity, 1, 3), rule.Advertising);
     }
 
     private static CCSPlayerController? FindPlayer(string search)
@@ -737,42 +813,4 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         menu.Open(caller);
     }
 
-    private void ShowBanPrompt(CCSPlayerController caller, PlayerInfo target, List<PlayerWarning> warnings)
-    {
-        if (!caller.IsValid) return;
-        var menu = Api.CreateMenu("chat_moderation:ban_offer", T("menu_ban_offer", warnings.Count),
-            backAction: player => OpenWarnings(player, warnings[0].SteamId, target.PlayerName));
-        foreach (var warning in warnings)
-        {
-            var source = Source(warning);
-            var localizedReason = _translations.GetValueOrDefault(warning.Reason, warning.Reason);
-            menu.AddMenuOption($"reason_{warning.Id}", $"{localizedReason} ({source})", (_, _) =>
-                caller.PrintToChat(T("warning_details", warning.Id, localizedReason, source,
-                    DateTimeOffset.FromUnixTimeSeconds(warning.CreatedAt).ToString("g"))));
-        }
-        if (caller.HasPermissions("blocks_manage.ban") && Api.ThisServer is not null &&
-            Config.SuggestedBanMinutes >= 0)
-            menu.AddMenuOption("confirm_ban", T("menu_confirm_ban", Config.SuggestedBanMinutes), (_, _) =>
-            {
-                if (Api.ThisServer is null || !Api.CanDoActionWithPlayer(caller.GetSteamId(), target.SteamId!)) return;
-                var summary = string.Join("; ", warnings.Take(5).Select(x =>
-                    _translations.GetValueOrDefault(x.Reason, x.Reason)));
-                var reason = T("ban_reason_prefix") + summary;
-                if (reason.Length > 250) reason = reason[..250];
-                var ban = new PlayerBan(target, reason, Config.SuggestedBanMinutes, Api.ThisServer.Id)
-                { AdminId = caller.Admin()!.Id };
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        var result = await Api.AddBan(ban);
-                        Server.NextFrame(() => caller.PrintToChat(T(result.QueryStatus == 0 ? "ban_applied" : "ban_failed")));
-                    }
-                    catch (Exception ex) { Logger.LogError(ex, "Could not apply suggested ban."); }
-                });
-            });
-        menu.AddMenuOption("keep_warnings", T("menu_keep_warnings"), (_, _) =>
-            OpenWarnings(caller, warnings[0].SteamId, target.PlayerName));
-        menu.Open(caller);
-    }
 }

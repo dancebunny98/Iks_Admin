@@ -13,23 +13,35 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public bool IgnoreAdministrators { get; set; } = false;
     public List<ulong> ExemptSteamIds { get; set; } = [];
     public int HistoryLimit { get; set; } = 50;
-    public int BanSuggestionThreshold { get; set; } = 3;
-    public int SuggestedBanMinutes { get; set; } = 1440;
+    public WarningEscalationConfig WarningEscalation { get; set; } = new();
     public bool NotifyModeratorsAtThreshold { get; set; } = true;
     public int MaxStoredMessageLength { get; set; } = 300;
     public int RegexTimeoutMilliseconds { get; set; } = 50;
     public List<WarningReason> WarningReasons { get; set; } =
     [
-        new() { Title = "reason_advertising", Text = "reason_advertising" },
-        new() { Title = "reason_caps", Text = "reason_caps" },
-        new() { Title = "reason_repeat", Text = "reason_repeat" }
+        new() { Title = "reason_advertising", Text = "reason_advertising", Severity = 3, Advertising = true },
+        new() { Title = "reason_caps", Text = "reason_caps", Severity = 1 },
+        new() { Title = "reason_repeat", Text = "reason_repeat", Severity = 1 }
     ];
     public List<ChatRule> Rules { get; set; } =
     [
-        new() { Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*", Action = "Warn", BlockMessage = true },
-        new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false },
-        new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false }
+        new() { Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*", Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true },
+        new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false, Severity = 1 },
+        new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false, Severity = 1 }
     ];
+}
+
+public sealed class WarningEscalationConfig
+{
+    public bool Enabled { get; set; } = true;
+    public int WarningThreshold { get; set; } = 3;
+    public int DefaultSeverity { get; set; } = 2;
+    public int LowMuteMinutes { get; set; } = 30;
+    public int MediumMuteMinutes { get; set; } = 120;
+    public int HighMuteMinutes { get; set; } = 1440;
+    public bool AdvertisingPermanent { get; set; } = true;
+    public bool CountManualWarnings { get; set; } = true;
+    public bool CountAutomaticWarnings { get; set; } = true;
 }
 
 public sealed class WarningReason
@@ -37,6 +49,8 @@ public sealed class WarningReason
     public string Title { get; set; } = "";
     public string Text { get; set; } = "";
     public bool HideFromMenu { get; set; }
+    public int Severity { get; set; } = 2;
+    public bool Advertising { get; set; }
 }
 
 public sealed class ChatRule
@@ -59,6 +73,11 @@ public sealed class ChatRule
     public bool AddWarning { get; set; } = true;
     public int GagMinutes { get; set; } = 10;
     public int MuteMinutes { get; set; } = 10;
-    public int BanMinutes { get; set; } = 60;
     public int CooldownSeconds { get; set; } = 5;
+    public int WarningAfterConsecutive { get; set; } = 3;
+    public int WarningAfterWindowCount { get; set; } = 6;
+    public int WarningWindowSeconds { get; set; } = 600;
+    public int ConsecutiveGapSeconds { get; set; } = 120;
+    public int Severity { get; set; } = 2;
+    public bool Advertising { get; set; }
 }

@@ -8,15 +8,24 @@
   "IgnoreAdministrators": false,
   "ExemptSteamIds": [],
   "HistoryLimit": 50,
-  "BanSuggestionThreshold": 3,
-  "SuggestedBanMinutes": 1440,
+  "WarningEscalation": {
+    "Enabled": true,
+    "WarningThreshold": 3,
+    "DefaultSeverity": 2,
+    "LowMuteMinutes": 30,
+    "MediumMuteMinutes": 120,
+    "HighMuteMinutes": 1440,
+    "AdvertisingPermanent": true,
+    "CountManualWarnings": true,
+    "CountAutomaticWarnings": true
+  },
   "NotifyModeratorsAtThreshold": true,
   "MaxStoredMessageLength": 300,
   "RegexTimeoutMilliseconds": 50,
   "WarningReasons": [
-    { "Title": "reason_advertising", "Text": "reason_advertising", "HideFromMenu": false },
-    { "Title": "reason_caps", "Text": "reason_caps", "HideFromMenu": false },
-    { "Title": "reason_repeat", "Text": "reason_repeat", "HideFromMenu": false }
+    { "Title": "reason_advertising", "Text": "reason_advertising", "HideFromMenu": false, "Severity": 3, "Advertising": true },
+    { "Title": "reason_caps", "Text": "reason_caps", "HideFromMenu": false, "Severity": 1, "Advertising": false },
+    { "Title": "reason_repeat", "Text": "reason_repeat", "HideFromMenu": false, "Severity": 1, "Advertising": false }
   ],
   "Rules": [
     {
@@ -38,8 +47,13 @@
       "AddWarning": true,
       "GagMinutes": 10,
       "MuteMinutes": 10,
-      "BanMinutes": 60,
-      "CooldownSeconds": 5
+      "CooldownSeconds": 5,
+      "WarningAfterConsecutive": 3,
+      "WarningAfterWindowCount": 6,
+      "WarningWindowSeconds": 600,
+      "ConsecutiveGapSeconds": 120,
+      "Severity": 3,
+      "Advertising": true
     },
     {
       "Id": "caps",
@@ -59,8 +73,13 @@
       "AddWarning": true,
       "GagMinutes": 10,
       "MuteMinutes": 10,
-      "BanMinutes": 60,
-      "CooldownSeconds": 5
+      "CooldownSeconds": 5,
+      "WarningAfterConsecutive": 3,
+      "WarningAfterWindowCount": 6,
+      "WarningWindowSeconds": 600,
+      "ConsecutiveGapSeconds": 120,
+      "Severity": 1,
+      "Advertising": false
     },
     {
       "Id": "repeat",
@@ -80,8 +99,13 @@
       "AddWarning": true,
       "GagMinutes": 10,
       "MuteMinutes": 10,
-      "BanMinutes": 60,
-      "CooldownSeconds": 5
+      "CooldownSeconds": 5,
+      "WarningAfterConsecutive": 3,
+      "WarningAfterWindowCount": 6,
+      "WarningWindowSeconds": 600,
+      "ConsecutiveGapSeconds": 120,
+      "Severity": 1,
+      "Advertising": false
     }
   ]
 }
