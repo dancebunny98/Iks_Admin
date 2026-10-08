@@ -39,5 +39,7 @@
   "storage_error": "Не вдалося звернутися до сховища попереджень.",
   "reason_advertising": "Реклама",
   "reason_caps": "Надмірне використання великих літер",
-  "reason_repeat": "Повторення символів"
+  "reason_repeat": "Повторення символів",
+  "reason_project_insult": "Образа проєкту",
+  "reason_profanity": "Нецензурна лексика"
 }

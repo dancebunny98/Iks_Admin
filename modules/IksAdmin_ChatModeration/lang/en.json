@@ -39,5 +39,7 @@
   "storage_error": "Could not access warning storage.",
   "reason_advertising": "Advertising",
   "reason_caps": "Excessive capital letters",
-  "reason_repeat": "Repeated characters"
+  "reason_repeat": "Repeated characters",
+  "reason_project_insult": "Project insult",
+  "reason_profanity": "Profanity"
 }

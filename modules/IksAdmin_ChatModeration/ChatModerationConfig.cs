@@ -10,7 +10,7 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public bool CheckPublicChat { get; set; } = true;
     public bool CheckTeamChat { get; set; } = true;
     public bool IgnoreChatCommands { get; set; } = true;
-    public bool IgnoreAdministrators { get; set; } = false;
+    public bool IgnoreAdministrators { get; set; } = true;
     public List<ulong> ExemptSteamIds { get; set; } = [];
     public int HistoryLimit { get; set; } = 50;
     public WarningEscalationConfig WarningEscalation { get; set; } = new();
@@ -20,14 +20,73 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public List<WarningReason> WarningReasons { get; set; } =
     [
         new() { Title = "reason_advertising", Text = "reason_advertising", Severity = 3, Advertising = true },
+        new() { Title = "reason_project_insult", Text = "reason_project_insult", Severity = 2 },
+        new() { Title = "reason_profanity", Text = "reason_profanity", Severity = 2 },
         new() { Title = "reason_caps", Text = "reason_caps", Severity = 1 },
         new() { Title = "reason_repeat", Text = "reason_repeat", Severity = 1 }
     ];
     public List<ChatRule> Rules { get; set; } =
     [
-        new() { Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*", Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true },
+        new()
+        {
+            Id = "external-addresses", Reason = "reason_advertising", MatchType = "Regex",
+            Pattern = @"(?i)(?<![\p{L}\p{N}@._-])(?:[\p{L}0-9-]+\.)+[\p{L}]{2,63}(?::\d{1,5})?(?![\p{L}\p{N}._-])",
+            Patterns = [@"(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?::\d{1,5})?(?![\d.])"],
+            Allowlist =
+            [
+                @"(?i)(?<![\p{L}\p{N}@._-])(?:[\p{L}0-9-]+\.)*quickfirecorp\.ru(?::\d{1,5})?(?![\p{L}\p{N}._-])",
+                @"(?<![\d.])213\.21\.10\.140(?::\d{1,5})?(?![\d.])",
+                @"(?i)discord\.gg/MfKUp4F(?![\p{L}\p{N}._/@-])",
+                @"(?i)discord\.com/invite/MfKUp4F(?![\p{L}\p{N}._/@-])"
+            ],
+            Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+        },
+        new()
+        {
+            Id = "listed-project-names", Reason = "reason_advertising", MatchType = "Regex",
+            Patterns = ProjectPatterns(), Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+        },
+        new()
+        {
+            Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*",
+            Allowlist = ["quickfirecorp.ru", "213.21.10.140"],
+            AllowedUrls = ["discord.gg/MfKUp4F", "discord.com/invite/MfKUp4F"],
+            Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+        },
+        new()
+        {
+            Id = "project-insult", Reason = "reason_project_insult", MatchType = "Regex",
+            Patterns =
+            [
+                @"(?i)(?<![\p{L}\p{N}])(?:quick[\W_]*fire|квик[\W_]*фа[йе]р)(?![\p{L}\p{N}]).{0,40}(?<!не\s)(?<![\p{L}\p{N}])(?:говн[оа]|помойк[а-яё]*|скам|дн[оа]|отсто[йя]|мусор[а-яё]*|дерьм[оа]|херн[яи])(?![\p{L}\p{N}])",
+                @"(?i)(?<!не\s)(?<![\p{L}\p{N}])(?:говн[оа]|помойк[а-яё]*|скам|дн[оа]|отсто[йя]|мусор[а-яё]*|дерьм[оа]|херн[яи])(?![\p{L}\p{N}]).{0,40}(?<![\p{L}\p{N}])(?:quick[\W_]*fire|квик[\W_]*фа[йе]р)(?![\p{L}\p{N}])"
+            ],
+            Action = "Warn", BlockMessage = true, Severity = 2
+        },
+        new()
+        {
+            Id = "profanity", Reason = "reason_profanity", MatchType = "Regex",
+            Pattern = @"(?i)(?<![\p{L}\p{N}])(?:х[уy][йеёяюи][а-яё]*|п[иы][з3]д[а-яё]*|[её]б[а-яё]*|бл[яеё](?:д[а-яё]*)?|сук[аиу][а-яё]*|мудак[а-яё]*|fuck(?:ing|ed|er|s)?|shit(?:ty|s)?|bitch(?:es|y)?)(?![\p{L}\p{N}])",
+            Action = "Warn", BlockMessage = true, Severity = 2
+        },
         new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false, Severity = 1 },
         new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false, Severity = 1 }
+    ];
+
+    private static List<string> ProjectPatterns() =>
+    [
+        .. new[]
+        {
+            "rehvh", "cs2hvhservers", "nixware", "monkeyhvh", "mcdonaldshvh", "poderosahvh",
+            "frague", "rastahvh", "santahvh", "sikintilihvh", "fluxhvh", "hvhlegions",
+            "novahvh", "enhancehvh", "darkprojecthvh", "unmatchedgg", "operahvh",
+            "wallersnightmare", "matchclubxyz", "evolutionofhvh", "xdgameshvh", "dedsechvh",
+            "hvhcat", "hvhclub", "primeareapl", "dreamhvh", "foxhvh", "hvhil", "kittywtf",
+            "livehvhnet", "rascalhvh", "goofygang", "kocolo", "fakesmile", "persianstrike",
+            "xfamily", "cs2hvhserves", "aslithegoat", "griffinfamily", "liprasafaceit",
+            "oskolabad", "pclanduser", "teryakis", "vacemployees", "demigodshvh",
+            "faceitclubevip", "hvhgg"
+        }.Select(name => @"(?i)(?<![\p{L}\p{N}])" + string.Join(@"[\W_]*", name.ToCharArray()) + @"(?![\p{L}\p{N}])")
     ];
 }
 
