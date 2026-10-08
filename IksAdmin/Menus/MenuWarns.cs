@@ -25,15 +25,7 @@ public static class MenuWarns
                     issuer.CurrentImmunity >= x.CurrentImmunity).ToList()!,
                 (a, m) =>
                 {
-                    caller.Print(_localizer["Message.GL.ReasonSet"]);
-                    _api.HookNextPlayerMessage(caller, reason =>
-                    {
-                        if (a is null || caller.Admin() is not { } issuer ||
-                            !AdminUtils.CanIssueWarn(issuer, a, reason)) return;
-                        var warn = new Warn(caller.Admin()!.Id, a!.Id, 0, reason);
-                        Task.Run(async () => await _api.CreateWarn(warn));
-                        m.Open(caller);
-                    });
+                    if (a is not null) OpenReasonMenu(caller, a, m);
                 },
                 backMenu: menu, nullOption: false
             );
@@ -55,6 +47,62 @@ public static class MenuWarns
         menu.Open(caller);
     }
 
+    private static void OpenReasonMenu(CCSPlayerController caller, Admin target, IDynamicMenu backMenu)
+    {
+        var menu = _api.CreateMenu(Main.MenuId("warns.reasons"),
+            _localizer["MenuTitle.Other.SelectReason"], backMenu: backMenu);
+        menu.AddMenuOption("own_reason", _localizer["MenuOption.Other.OwnReason"], (_, _) =>
+        {
+            caller.Print(_localizer["Message.PrintOwnReason"]);
+            _api.HookNextPlayerMessage(caller, reason => IssueWarn(caller, target, reason, backMenu));
+        });
+        foreach (var reason in _api.Config.WarnReasons.Where(x => !x.HideFromMenu &&
+                     !string.IsNullOrWhiteSpace(x.Title) && !string.IsNullOrWhiteSpace(x.Text)))
+        {
+            var text = _localizer[reason.Text].Value;
+            if (caller.Admin() is not { } issuer || !AdminUtils.CanIssueWarn(issuer, target, text))
+                continue;
+            menu.AddMenuOption(reason.Title, _localizer[reason.Title], (_, _) =>
+                IssueWarn(caller, target, text, backMenu));
+        }
+        menu.Open(caller);
+    }
+
+    private static void IssueWarn(CCSPlayerController caller, Admin target, string reason, IDynamicMenu backMenu)
+    {
+        reason = reason.Trim();
+        if (reason.Length is < 3 or > 255)
+        {
+            caller.Print(_localizer["ActionError.WarnReasonInvalid"]);
+            return;
+        }
+        if (caller.Admin() is not { } issuer || !AdminUtils.CanIssueWarn(issuer, target, reason))
+        {
+            caller.Print(_localizer["ActionError.NotEnoughPermissionsForAction"]);
+            return;
+        }
+        var warn = new Warn(issuer.Id, target.Id, 0, reason);
+        Task.Run(async () =>
+        {
+            try
+            {
+                var result = await _api.CreateWarn(warn);
+                Server.NextFrame(() =>
+                {
+                    if (!caller.IsValid) return;
+                    caller.Print(_localizer[result.QueryStatus == 0 ?
+                        "Message.Warns.Created" : "ActionError.WarnSaveFailed"]);
+                    backMenu.Open(caller);
+                });
+            }
+            catch (Exception ex)
+            {
+                AdminUtils.LogError(ex.Message);
+                Server.NextFrame(() => { if (caller.IsValid) caller.Print(_localizer["ActionError.WarnSaveFailed"]); });
+            }
+        });
+    }
+
 
 
     private static void SelectWarnMenu(CCSPlayerController caller, Admin admin, IDynamicMenu backMenu, IDynamicMenu? mainBack = null)
@@ -69,21 +117,37 @@ public static class MenuWarns
         foreach (var warn in warns)
         {
             menu.AddMenuOption(warn.Id.ToString(), $"[{warn.Id}] {warn.Reason}", (_, _) => {
-                _api.RemoveNextPlayerMessageHook(caller);
                 caller.Print(MsgOther.SWarnTemplate(warn));
+                var details = _api.CreateMenu(Main.MenuId("warns.details"),
+                    _localizer["MenuTitle.Warns.Details"], backMenu: menu);
                 if (caller.Admin() is { } actor && AdminUtils.CanRemoveWarn(actor, warn))
                 {
-                    caller.Print(_localizer["Message.Warns.DeleteWarn"]);
-                    _api.HookNextPlayerMessage(caller, (s) => {
-                        if (s == "delete")
+                    details.AddMenuOption("remove", _localizer["MenuOption.Warns.Remove"], (_, _) =>
+                    {
+                        Task.Run(async () =>
                         {
-                            Task.Run(async () => {
-                                await _api.DeleteWarn(actor, warn);
+                            try
+                            {
+                                var result = await _api.DeleteWarn(actor, warn);
+                                Server.NextFrame(() =>
+                                {
+                                    if (!caller.IsValid) return;
+                                    caller.Print(_localizer[result.QueryStatus == 0 ?
+                                        "Message.Warns.Removed" : "ActionError.WarnDeleteFailed"]);
+                                    SelectWarnMenu(caller, admin, backMenu, mainBack);
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                AdminUtils.LogError(ex.Message);
+                                Server.NextFrame(() => { if (caller.IsValid) caller.Print(_localizer["ActionError.WarnDeleteFailed"]); });
+                            }
                             });
-                            OpenMain(caller, mainBack);
-                        }
                     });
                 }
+                details.AddMenuOption("reason", _localizer["MenuOption.Warns.Reason", warn.Reason],
+                    (_, _) => { }, disabled: true);
+                details.Open(caller);
             });
         }
 

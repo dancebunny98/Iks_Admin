@@ -21,6 +21,12 @@ public class CoreConfig : PluginCFG<CoreConfig>, IPluginCFG
         //{"css_respawn", "css_arespawn"} // -> Меняет css_respawn на css_arespawn к примеру
     };
     public int MaxWarns { get; set; } = 3; // Максимальное кол-во варнов для блокировки админки у игрока
+    public List<WarnReason> WarnReasons { get; set; } =
+    [
+        new() { Title = "WarnReason.Rules", Text = "WarnReason.Rules" },
+        new() { Title = "WarnReason.Abuse", Text = "WarnReason.Abuse" },
+        new() { Title = "WarnReason.Test", Text = "test" }
+    ];
     public string WebApiKey {get; set;} = ""; // Указываете API ключ для получения имени в оффлайн бане
     public bool AdvancedKick {get; set;} = true;
     public int AdvancedKickTime {get; set;} = 5;
@@ -49,4 +55,11 @@ public class CoreConfig : PluginCFG<CoreConfig>, IPluginCFG
         Config = ReadOrCreate(AdminUtils.CoreInstance.ModuleDirectory +"/../../configs/plugins/IksAdmin/core.json", Config);
         AdminUtils.LogDebug("Core config loaded ✔");
     }
+}
+
+public sealed class WarnReason
+{
+    public string Title { get; set; } = "";
+    public string Text { get; set; } = "";
+    public bool HideFromMenu { get; set; }
 }

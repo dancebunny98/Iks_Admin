@@ -2039,13 +2039,16 @@ public class AdminApi : IIksAdminApi
         warn.DeletedAt = AdminUtils.CurrentTimestamp();
         var eData = new EventData("delete_warn");
         eData.Insert("warn", warn);
+        eData.Insert("actor", admin);
         if (eData.Invoke() != HookResult.Continue)
         {
             return new DBResult(null, -2, "Stopped by event WARN");
         }
         warn = eData.Get<Warn>("warn");
         var result = await warn.UpdateInBase();
+        if (result.QueryStatus != 0) return result;
         await ReloadDataFromDb();
+        eData.Invoke("delete_warn_post");
         Server.NextWorldUpdate(() =>
         {
             if (announce)

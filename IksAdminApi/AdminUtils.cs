@@ -171,8 +171,8 @@ public static class AdminUtils
     public static bool CanIssueWarn(Admin issuer, Admin target, string reason)
     {
         if (issuer.IsConsole) return true;
-        if (string.Equals(reason.Trim(), "test", StringComparison.OrdinalIgnoreCase) && issuer.Id == target.Id)
-            return true;
+        if (issuer.Id == target.Id)
+            return string.Equals(reason.Trim(), "test", StringComparison.OrdinalIgnoreCase);
         return issuer.HasPermissions("admins_manage.warn_add") &&
                issuer.CurrentImmunity >= target.CurrentImmunity;
     }

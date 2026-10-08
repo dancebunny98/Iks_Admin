@@ -8,6 +8,8 @@
   "menu_history": "Warnings: {0}",
   "menu_view": "View warnings",
   "menu_issue": "Issue warning",
+  "menu_select_reason": "Select warning reason",
+  "menu_own_reason": "Custom reason",
   "menu_revoke": "Revoke warning #{0}",
   "menu_warning": "Warning #{0}",
   "menu_reason": "Reason: {0}",

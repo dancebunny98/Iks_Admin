@@ -34,7 +34,9 @@ addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/IksAdmin_D
 }
 ```
 
-Поддерживаются события банов, mute/gag/silence, снятия наказаний и kick-команд. Записи сохраняются в `records.json`, неотправленные webhook-запросы попадают в `failed-webhooks.jsonl`.
+Поддерживаются события банов, mute/gag/silence, снятия наказаний, kick-команд, выдачи и снятия варнов. Записи сохраняются в `records.json`, неотправленные webhook-запросы попадают в `failed-webhooks.jsonl`.
+
+Варны настраиваются отдельно в `addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/warnings.json`. Файл содержит свой `Webhook` (пустое значение использует `Webhooks.Punishments`), переключатели `Issued`, `Removed`, `Automatic`, `Test`, шаблоны `IssuedTemplate`/`RemovedTemplate` и настройки полей Embed, включая `IncludeRemovedAt`. Поддерживаются варны администраторов из ядра и автоматические/ручные варны игроков из ChatModeration. В шаблонах доступны `{warningid}`, `{player}`, `{steamid}`, `{admin}`, `{reason}`, `{source}`, `{message}`, `{originalissuer}`, `{test}` и `{server}`. Отчёты отдельно считают выданные и снятые варны; CSV содержит ID, источник и дату снятия. Изменения обоих конфигов применяет `css_discord_logs_reload`.
 
 Команды:
 

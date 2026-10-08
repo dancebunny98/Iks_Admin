@@ -97,6 +97,38 @@ public sealed class FieldConfig
     };
 }
 
+public sealed class WarningLogConfig
+{
+    public bool Enabled { get; set; } = true;
+    public string Webhook { get; set; } = "";
+    public bool Issued { get; set; } = true;
+    public bool Removed { get; set; } = true;
+    public bool Automatic { get; set; } = true;
+    public bool Test { get; set; } = true;
+    public bool IncludeWarningId { get; set; } = true;
+    public bool IncludeSource { get; set; } = true;
+    public bool IncludeMessage { get; set; } = true;
+    public bool IncludeOriginalIssuer { get; set; } = true;
+    public bool IncludeRemovedAt { get; set; } = true;
+    public TemplateConfig IssuedTemplate { get; set; } = new()
+    {
+        Title = "Варн выдан #{warningid}",
+        Description = "**{player}** получил варн от **{admin}**.",
+        Color = 15105570
+    };
+    public TemplateConfig RemovedTemplate { get; set; } = new()
+    {
+        Title = "Варн снят #{warningid}",
+        Description = "**{admin}** снял варн с **{player}**.",
+        Color = 5763719
+    };
+    public FieldConfig Fields { get; set; } = new()
+    {
+        Duration = false, ExpiresAt = false, Ip = false,
+        Online = false, PreviousPunishments = false
+    };
+}
+
 public sealed class ReportConfig
 {
     public bool Enabled { get; set; } = true;
@@ -135,6 +167,11 @@ public sealed class PunishmentRecord
     public int EndAt { get; set; }
     public int? RemovedAt { get; set; }
     public string RemoveReason { get; set; } = "";
+    public long WarningId { get; set; }
+    public string Source { get; set; } = "";
+    public string Message { get; set; } = "";
+    public string OriginalIssuer { get; set; } = "";
+    public bool IsTest { get; set; }
 }
 
 public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
@@ -147,6 +184,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private string _dataPath = "";
     private string _dispatchStatePath = "";
     private string _failedPath = "";
+    private string _warningConfigPath = "";
+    private WarningLogConfig _warningConfig = new();
     private SemaphoreSlim _sendLock = new(1, 1);
 
     public override string ModuleName => "IksAdmin_DiscordPunishments";
@@ -165,7 +204,10 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         _dataPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "records.json");
         _dispatchStatePath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "dispatch-state.json");
         _failedPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "failed-webhooks.jsonl");
+        _warningConfigPath = Path.Combine(AdminUtils.ConfigsDir, ModuleName, "warnings.json");
         Directory.CreateDirectory(Path.GetDirectoryName(_dataPath)!);
+        try { _warningConfig = ReadWarningConfig(); }
+        catch (Exception ex) { Logger.LogError(ex, "[{Module}] failed to load warning config", ModuleName); }
         LoadRecords();
         LoadDispatchState();
         Logger.LogInformation("[{Module}] loaded. Punishment webhook configured: {Configured}", ModuleName, !string.IsNullOrWhiteSpace(Config.Webhooks.Punishments));
@@ -184,6 +226,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         Api.SuccessUnban += OnUnban;
         Api.SuccessUnComm += OnUncomm;
         Api.OnKickPost += OnKickPost;
+        Api.OnDynamicEvent += OnDynamicEvent;
         AddTimer(60.0f, OnPeriodicCheck, TimerFlags.REPEAT);
     }
 
@@ -194,6 +237,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         Api.SuccessUnban -= OnUnban;
         Api.SuccessUnComm -= OnUncomm;
         Api.OnKickPost -= OnKickPost;
+        Api.OnDynamicEvent -= OnDynamicEvent;
         _sendLock.Dispose();
         base.Unload(hotReload);
     }
@@ -256,8 +300,92 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         RecordAndSend(record);
     }
 
+    private HookResult OnDynamicEvent(EventData data)
+    {
+        try
+        {
+            switch (data.EventKey)
+            {
+                case "create_warn_post":
+                    RecordWarning(data.Get<Warn>("warn"), removed: false, null);
+                    break;
+                case "delete_warn_post":
+                    RecordWarning(data.Get<Warn>("warn"), removed: true, data.Get<Admin>("actor"));
+                    break;
+                case "chat_warning_created":
+                    RecordChatWarning(data, removed: false);
+                    break;
+                case "chat_warning_removed":
+                    RecordChatWarning(data, removed: true);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "[{Module}] failed to record warning event {EventKey}", ModuleName, data.EventKey);
+        }
+        return HookResult.Continue;
+    }
+
+    private void RecordWarning(Warn warn, bool removed, Admin? actor)
+    {
+        if (!ShouldRecordWarning(removed, "administrator", warn.IsTest)) return;
+        var issuer = warn.Admin;
+        RecordAndSend(new PunishmentRecord
+        {
+            EventType = removed ? "warn_removed" : "warn_issued",
+            WarningId = warn.Id,
+            Player = warn.TargetAdmin?.CurrentName ?? warn.TargetSteamId?.ToString() ?? warn.TargetId.ToString(),
+            SteamId = warn.TargetAdmin?.SteamId ?? warn.TargetSteamId?.ToString() ?? "",
+            Administrator = (removed ? actor : issuer)?.CurrentName ?? "CONSOLE",
+            AdministratorSteamId = (removed ? actor : issuer)?.SteamId ?? "CONSOLE",
+            OriginalIssuer = issuer?.CurrentName ?? "CONSOLE",
+            Reason = warn.Reason,
+            Source = "administrator",
+            IsTest = warn.IsTest,
+            CreatedAt = warn.CreatedAt,
+            RemovedAt = removed ? warn.DeletedAt ?? AdminUtils.CurrentTimestamp() : null
+        });
+    }
+
+    private void RecordChatWarning(EventData data, bool removed)
+    {
+        var reason = data.Get<string>("reason");
+        var source = data.Get<string>("source");
+        var isTest = reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase);
+        if (!ShouldRecordWarning(removed, source, isTest)) return;
+        var issuer = AdminUtils.Admin(data.Get<int>("issuer_id"));
+        var actor = removed ? data.Get<Admin>("actor") : issuer;
+        RecordAndSend(new PunishmentRecord
+        {
+            EventType = removed ? "warn_removed" : "warn_issued",
+            WarningId = data.Get<long>("id"),
+            Player = data.Get<string>("player_name"),
+            SteamId = data.Get<ulong>("steam_id").ToString(),
+            Administrator = actor?.CurrentName ?? "CONSOLE",
+            AdministratorSteamId = actor?.SteamId ?? "CONSOLE",
+            OriginalIssuer = issuer?.CurrentName ?? "CONSOLE",
+            Reason = reason,
+            Source = source,
+            Message = data.Get<string>("message"),
+            IsTest = isTest,
+            CreatedAt = checked((int)data.Get<long>("issued_at")),
+            RemovedAt = removed ? AdminUtils.CurrentTimestamp() : null
+        });
+    }
+
+    private bool ShouldRecordWarning(bool removed, string source, bool isTest) =>
+        _warningConfig.Enabled && (removed ? _warningConfig.Removed : _warningConfig.Issued) &&
+        (_warningConfig.Automatic || !source.Equals("automatic", StringComparison.OrdinalIgnoreCase)) &&
+        (_warningConfig.Test || !isTest);
+
     private void RecordAndSend(PunishmentRecord record)
     {
+        if (!_dispatchKeys.TryAdd(DispatchKey(record), 0))
+        {
+            Logger.LogWarning("[{Module}] duplicate {EventType} event ignored for {SteamId} at {CreatedAt}", ModuleName, record.EventType, record.SteamId, record.CreatedAt);
+            return;
+        }
         lock (_sync)
         {
             _records.Add(record);
@@ -265,16 +393,14 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                 _records.RemoveRange(0, _records.Count - Config.MaxStoredRecords);
             SaveRecords();
         }
-        if (!_dispatchKeys.TryAdd(DispatchKey(record), 0))
-        {
-            Logger.LogWarning("[{Module}] duplicate {EventType} event ignored for {SteamId} at {CreatedAt}", ModuleName, record.EventType, record.SteamId, record.CreatedAt);
-            return;
-        }
         _ = SendAsync(record);
     }
 
     private static string DispatchKey(PunishmentRecord record) =>
-        string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt, record.RemovedAt, record.Reason);
+        string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt,
+            record.RemovedAt, record.Reason, record.WarningId, record.Source);
+
+    private static int EventTimestamp(PunishmentRecord record) => record.RemovedAt ?? record.CreatedAt;
 
     private void OnPeriodicCheck()
     {
@@ -310,7 +436,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         var from = AdminUtils.CurrentTimestamp() - Config.Reports.IntervalMinutes * 60;
         List<PunishmentRecord> records;
-        lock (_sync) records = _records.Where(x => x.CreatedAt >= from).ToList();
+        lock (_sync) records = _records.Where(x => EventTimestamp(x) >= from).ToList();
         if (records.Count == 0) return;
         await SendReportAsync($"последние {Config.Reports.IntervalMinutes} минут", records, "scheduler");
         if (records.Count < Config.Reports.AnomalyThresholdPerHour || string.IsNullOrWhiteSpace(Config.Webhooks.Anomalies)) return;
@@ -329,7 +455,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         try
         {
-            var url = Config.Webhooks.Punishments;
+            var url = (record.EventType is "warn_issued" or "warn_removed") && !string.IsNullOrWhiteSpace(_warningConfig.Webhook)
+                ? _warningConfig.Webhook : Config.Webhooks.Punishments;
             if (string.IsNullOrWhiteSpace(url))
             {
                 Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
@@ -415,31 +542,51 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private DiscordEmbed BuildEmbed(PunishmentRecord record)
     {
-        var template = Config.Templates.TryGetValue(record.EventType, out var found) ? found : new TemplateConfig();
-        var fields = Config.Fields.TryGetValue(record.EventType, out var fieldConfig) ? fieldConfig : new FieldConfig();
+        var warningEvent = record.EventType is "warn_issued" or "warn_removed";
+        var template = warningEvent
+            ? record.EventType == "warn_issued" ? _warningConfig.IssuedTemplate : _warningConfig.RemovedTemplate
+            : Config.Templates.TryGetValue(record.EventType, out var found) ? found : new TemplateConfig();
+        var fields = _warningConfig.Fields;
+        if (!warningEvent)
+            fields = Config.Fields.TryGetValue(record.EventType, out var configuredFields)
+                ? configuredFields : new FieldConfig();
         var values = Values(record);
         var embed = new DiscordEmbed
         {
             Title = Expand(template.Title, values), Description = Expand(template.Description, values), Color = template.Color,
             Footer = new DiscordFooter { Text = $"{Config.EmbedSettings.FooterName} | server:{Api.ThisServer?.Id}" }, Timestamp = DateTimeOffset.UtcNow
         };
-        if (fieldConfig.Player) embed.Fields.Add(Field("Игрок", $"{Sanitize(record.Player)}\nSteamID64: `{Sanitize(record.SteamId)}`\nhttps://steamcommunity.com/profiles/{Sanitize(record.SteamId)}"));
-        if (fieldConfig.Administrator) embed.Fields.Add(Field("Администратор", $"{Sanitize(record.Administrator)}\nSteamID64: `{Sanitize(record.AdministratorSteamId)}`"));
-        if (fieldConfig.Reason) embed.Fields.Add(Field("Причина", record.Reason));
-        if (fieldConfig.Duration) embed.Fields.Add(Field("Длительность", FormatDuration(record.Duration)));
-        if (fieldConfig.IssuedAt) embed.Fields.Add(Field("Дата выдачи", FormatDate(record.CreatedAt)));
-        if (fieldConfig.ExpiresAt && record.EndAt != 0) embed.Fields.Add(Field("Дата истечения", FormatDate(record.EndAt)));
-        if (fieldConfig.Type) embed.Fields.Add(Field("Тип наказания", record.EventType));
-        if (fieldConfig.Ip && Config.EmbedSettings.IncludeIp) embed.Fields.Add(Field("IP-адрес", record.Ip));
-        if (fieldConfig.Server) embed.Fields.Add(Field("Сервер", Api.ThisServer?.Name ?? "unknown"));
-        if (fieldConfig.Online) embed.Fields.Add(Field("Онлайн", Utilities.GetPlayers().Count(x => x != null && x.IsValid).ToString(CultureInfo.InvariantCulture)));
-        if (fieldConfig.PreviousPunishments)
+        if (fields.Player) embed.Fields.Add(Field("Игрок", $"{Sanitize(record.Player)}\nSteamID64: `{Sanitize(record.SteamId)}`\nhttps://steamcommunity.com/profiles/{Sanitize(record.SteamId)}"));
+        if (fields.Administrator) embed.Fields.Add(Field("Администратор", $"{Sanitize(record.Administrator)}\nSteamID64: `{Sanitize(record.AdministratorSteamId)}`"));
+        if (fields.Reason) embed.Fields.Add(Field("Причина", record.Reason));
+        if (fields.Duration) embed.Fields.Add(Field("Длительность", FormatDuration(record.Duration)));
+        if (fields.IssuedAt) embed.Fields.Add(Field("Дата выдачи", FormatDate(record.CreatedAt)));
+        if (fields.ExpiresAt && record.EndAt != 0) embed.Fields.Add(Field("Дата истечения", FormatDate(record.EndAt)));
+        if (fields.Type) embed.Fields.Add(Field("Тип наказания", record.EventType));
+        if (fields.Ip && Config.EmbedSettings.IncludeIp) embed.Fields.Add(Field("IP-адрес", record.Ip));
+        if (fields.Server) embed.Fields.Add(Field("Сервер", Api.ThisServer?.Name ?? "unknown"));
+        if (fields.Online) embed.Fields.Add(Field("Онлайн", Utilities.GetPlayers().Count(x => x != null && x.IsValid).ToString(CultureInfo.InvariantCulture)));
+        if (fields.PreviousPunishments)
         {
             int previous;
             lock (_sync) previous = _records.Count(x => x.SteamId == record.SteamId && x.CreatedAt < record.CreatedAt && x.EventType is "ban" or "mute" or "gag" or "silence" or "kick");
             embed.Fields.Add(Field("Предыдущие наказания", previous.ToString(CultureInfo.InvariantCulture)));
         }
-        if (record.RemovedAt.HasValue) embed.Fields.Add(Field("Причина снятия", record.RemoveReason));
+        if (warningEvent)
+        {
+            if (_warningConfig.IncludeWarningId)
+                embed.Fields.Add(Field("ID варна", record.WarningId.ToString(CultureInfo.InvariantCulture)));
+            if (_warningConfig.IncludeSource) embed.Fields.Add(Field("Источник", record.Source));
+            if (_warningConfig.IncludeMessage && !string.IsNullOrWhiteSpace(record.Message))
+                embed.Fields.Add(Field("Сообщение", record.Message));
+            if (_warningConfig.IncludeOriginalIssuer && record.RemovedAt.HasValue)
+                embed.Fields.Add(Field("Выдал", record.OriginalIssuer));
+            if (_warningConfig.IncludeRemovedAt && record.RemovedAt is { } removedAt)
+                embed.Fields.Add(Field("Дата снятия", FormatDate(removedAt)));
+            if (record.IsTest) embed.Fields.Add(Field("Тестовый", "Да"));
+        }
+        if (record.RemovedAt.HasValue && !string.IsNullOrWhiteSpace(record.RemoveReason))
+            embed.Fields.Add(Field("Причина снятия", record.RemoveReason));
         return embed;
     }
 
@@ -448,7 +595,10 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         ["player"] = r.Player, ["steamid"] = r.SteamId, ["steamid64"] = r.SteamId, ["admin"] = r.Administrator,
         ["adminsteamid"] = r.AdministratorSteamId, ["reason"] = r.Reason, ["duration"] = FormatDuration(r.Duration),
         ["issuedat"] = FormatDate(r.CreatedAt), ["expiresat"] = r.EndAt == 0 ? "Навсегда" : FormatDate(r.EndAt),
-        ["server"] = Api.ThisServer?.Name ?? "unknown", ["type"] = r.EventType, ["emoji"] = "📋"
+        ["server"] = Api.ThisServer?.Name ?? "unknown", ["type"] = r.EventType, ["emoji"] = "📋",
+        ["warningid"] = r.WarningId.ToString(CultureInfo.InvariantCulture), ["source"] = r.Source,
+        ["message"] = r.Message, ["originalissuer"] = r.OriginalIssuer,
+        ["test"] = r.IsTest ? "true" : "false"
     };
 
     private DiscordField Field(string name, string value) => new() { Name = name, Value = Sanitize(value), Inline = false };
@@ -482,7 +632,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         var period = mode is "admin" or "player" ? (args.Count > 2 ? args[2].ToLowerInvariant() : "all") : mode;
         var from = PeriodStart(period);
         List<PunishmentRecord> records;
-        lock (_sync) records = _records.Where(x => x.CreatedAt >= from).ToList();
+        lock (_sync) records = _records.Where(x => EventTimestamp(x) >= from).ToList();
         var own = mode switch
         {
             "all" => records,
@@ -490,7 +640,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             "player" => records.Where(x => x.Player.Contains(target, StringComparison.OrdinalIgnoreCase) || x.SteamId == target).ToList(),
             _ => caller == null ? records : records.Where(x => x.AdministratorSteamId == caller.GetSteamId()).ToList()
         };
-        var text = $"Отчёт ({mode}) за {period}: всего {own.Count}, банов {own.Count(x => x.EventType == "ban")}, киков {own.Count(x => x.EventType == "kick")}, наказаний чата {own.Count(x => x.EventType is "mute" or "gag" or "silence")}, снятий {own.Count(x => x.EventType is "unban" or "uncomm")}.";
+        var text = $"Отчёт ({mode}) за {period}: всего {own.Count}, банов {own.Count(x => x.EventType == "ban")}, киков {own.Count(x => x.EventType == "kick")}, наказаний чата {own.Count(x => x.EventType is "mute" or "gag" or "silence")}, снятий {own.Count(x => x.EventType is "unban" or "uncomm")}, варнов {own.Count(x => x.EventType == "warn_issued")}, снятых варнов {own.Count(x => x.EventType == "warn_removed")}.";
         caller?.Print(text);
         _ = SendReportAsync($"{mode}/{period}", own, caller?.PlayerName ?? "CONSOLE");
     }
@@ -499,12 +649,16 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         var period = args[0].ToLowerInvariant();
         List<PunishmentRecord> records;
-        lock (_sync) records = _records.Where(x => x.CreatedAt >= PeriodStart(period)).ToList();
+        lock (_sync) records = _records.Where(x => EventTimestamp(x) >= PeriodStart(period)).ToList();
         var directory = Path.Combine(AdminUtils.ConfigsDir, ModuleName, Config.Export.Directory);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, $"report-{period}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
-        var sb = new StringBuilder("type,player,steamid,administrator,admin_steamid,reason,duration,created_at,end_at\n");
-        foreach (var r in records) sb.AppendLine(string.Join(',', Csv(r.EventType), Csv(r.Player), Csv(r.SteamId), Csv(r.Administrator), Csv(r.AdministratorSteamId), Csv(r.Reason), r.Duration, r.CreatedAt, r.EndAt));
+        var sb = new StringBuilder("type,player,steamid,administrator,admin_steamid,reason,duration,created_at,end_at,removed_at,warning_id,source,message,original_issuer,is_test\n");
+        foreach (var r in records)
+            sb.AppendLine(string.Join(',', Csv(r.EventType), Csv(r.Player), Csv(r.SteamId), Csv(r.Administrator),
+                Csv(r.AdministratorSteamId), Csv(r.Reason), r.Duration, r.CreatedAt, r.EndAt,
+                r.RemovedAt?.ToString(CultureInfo.InvariantCulture) ?? "", r.WarningId, Csv(r.Source),
+                Csv(r.Message), Csv(r.OriginalIssuer), r.IsTest));
         File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
         caller?.Print($"CSV отчёт сохранён: {path}");
     }
@@ -517,6 +671,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         embed.Fields.Add(Field("Кики", records.Count(x => x.EventType == "kick").ToString()));
         embed.Fields.Add(Field("Муты/гаги/сайленсы", records.Count(x => x.EventType is "mute" or "gag" or "silence").ToString()));
         embed.Fields.Add(Field("Снятия", records.Count(x => x.EventType is "unban" or "uncomm").ToString()));
+        embed.Fields.Add(Field("Варны выданы", records.Count(x => x.EventType == "warn_issued").ToString()));
+        embed.Fields.Add(Field("Варны сняты", records.Count(x => x.EventType == "warn_removed").ToString()));
         await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = "IksAdmin Logs", embeds = new[] { embed } }, "report");
     }
 
@@ -530,10 +686,20 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             if (parsed == null) throw new InvalidDataException("empty config");
             if (string.IsNullOrWhiteSpace(parsed.Webhooks.Punishments))
                 parsed.Webhooks.Punishments = parsed.Webhooks.Default;
+            var warnings = ReadWarningConfig();
             Config = parsed;
+            _warningConfig = warnings;
             caller?.Print("Конфиг Discord-логирования перечитан.");
         }
         catch (Exception e) { caller?.Print($"Ошибка конфига: {e.Message}"); }
+    }
+
+    private WarningLogConfig ReadWarningConfig()
+    {
+        if (!File.Exists(_warningConfigPath))
+            File.WriteAllText(_warningConfigPath, JsonSerializer.Serialize(new WarningLogConfig(), JsonOptions()));
+        return JsonSerializer.Deserialize<WarningLogConfig>(File.ReadAllText(_warningConfigPath), JsonOptions())
+            ?? throw new InvalidDataException("empty warning config");
     }
 
     private void OnTest(CCSPlayerController? caller, List<string> args, CommandInfo info)

@@ -261,6 +261,9 @@ jobs:
             CONFIG_OUT="out/addons/counterstrikesharp/configs/plugins/$MOD"
             mkdir -p "$CONFIG_OUT"
             cp "$CONFIG_SOURCE" "$CONFIG_OUT/$MOD.json"
+            if [ -f "$PROJDIR/warnings.json" ]; then
+              cp "$PROJDIR/warnings.json" "$CONFIG_OUT/warnings.json"
+            fi
           fi
 
           find out -type f

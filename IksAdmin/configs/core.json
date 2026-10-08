@@ -19,6 +19,11 @@
     //  "css_respawn" : "css_arespawn" //например
   },
   "MaxWarns": 3, // Максимальное число варнов при котором отключается админка
+  "WarnReasons": [
+    { "Title": "WarnReason.Rules", "Text": "WarnReason.Rules", "HideFromMenu": false },
+    { "Title": "WarnReason.Abuse", "Text": "WarnReason.Abuse", "HideFromMenu": false },
+    { "Title": "WarnReason.Test", "Text": "test", "HideFromMenu": false }
+  ],
   "WebApiKey": "", // Указываете свой WebApiKey - нужен для того что бы брать ники из стима при оффлайн бане
   "AdvancedKick": true, // Показывать ли табличку перед киком игрока с сервера (Кик, Бан)
   "AdvancedKickTime": 5, // Время через которое игрока кикнет

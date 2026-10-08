@@ -348,7 +348,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         try
         {
             warning.AdminId = moderator?.Admin()?.Id ?? Api.ConsoleAdmin?.Id ?? 0;
-            await _store!.AddAsync(warning);
+            warning.Id = await _store!.AddAsync(warning);
+            Server.NextFrame(() => PublishWarningEvent("chat_warning_created", warning));
             var active = await _store.ActiveAsync(warning.SteamId);
             if (Api.AllAdmins.Any(x => x.USteamId == warning.SteamId))
                 await Api.ReloadDataFromDb();
@@ -406,19 +407,19 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         IssueManualWarning(caller, target, string.Join(' ', args.Skip(1)));
     }
 
-    private void IssueManualWarning(CCSPlayerController caller, CCSPlayerController target, string reason)
+    private bool IssueManualWarning(CCSPlayerController caller, CCSPlayerController target, string reason)
     {
         if (!target.IsValid || target.AuthorizedSteamID is null ||
             !CanWarn(caller, target, reason))
         {
             caller.PrintToChat(T("target_unavailable"));
-            return;
+            return false;
         }
         reason = reason.Trim();
         if (reason.Length is < 3 or > 255)
         {
             caller.PrintToChat(T("invalid_reason"));
-            return;
+            return false;
         }
         var info = new PlayerInfo(target);
         var warning = new PlayerWarning
@@ -432,6 +433,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             IssuedImmunity = caller.Admin()?.CurrentImmunity
         };
         _ = SaveWarningAsync(warning, caller, info);
+        return true;
     }
 
     private void ReviewCommand(CCSPlayerController? caller, List<string> args, CommandInfo info)
@@ -469,7 +471,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         var issuer = caller.Admin();
         var recipient = target.Admin();
         if (issuer is null) return false;
-        if (issuer.Id == recipient?.Id && reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase)) return true;
+        if (issuer.Id == recipient?.Id)
+            return reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase);
         return caller.HasPermissions(WarnPermission) &&
                (recipient is null || issuer.CurrentImmunity >= recipient.CurrentImmunity);
     }
@@ -480,14 +483,16 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         if (moderator is null) return false;
         if (warning.Reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase)) return true;
         if (warning.AdminId == moderator.Id) return true;
-        if (!caller.HasPermissions(RevokePermission)) return false;
-        if (warning.AdminId == Api.ConsoleAdmin.Id && !moderator.HasPermissions("blocks_manage.remove_console")) return false;
+        if (!caller.HasPermissions(warning.IsAdminWarning ? "admins_manage.warn_delete" : RevokePermission))
+            return false;
+        if (!warning.IsAdminWarning && warning.AdminId == Api.ConsoleAdmin.Id &&
+            !moderator.HasPermissions("blocks_manage.remove_console")) return false;
         var issuerImmunity = warning.IssuedImmunity ?? Api.AllAdmins.FirstOrDefault(x => x.Id == warning.AdminId)?.CurrentImmunity;
         return issuerImmunity is not null && moderator.CurrentImmunity >= issuerImmunity;
     }
 
     private void ApplyRevoke(CCSPlayerController caller, ulong steamId, string name, PlayerWarning warning,
-        IDynamicMenu? historyBackMenu = null)
+        IDynamicMenu? historyBackMenu = null, bool ownOnly = false)
     {
         var actor = caller.Admin()!;
         var moderatorSteamId = caller.AuthorizedSteamID!.SteamId64;
@@ -506,6 +511,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 else
                     removed = await _store!.RevokeAsync(warning.Id, steamId, warning.AdminId,
                         moderatorId, moderatorSteamId);
+                if (removed && !warning.IsAdminWarning)
+                    Server.NextFrame(() => PublishWarningEvent("chat_warning_removed", warning, actor));
                 if (removed && !warning.IsAdminWarning && Api.AllAdmins.Any(x => x.USteamId == steamId))
                     await Api.ReloadDataFromDb();
                 Server.NextFrame(() =>
@@ -513,11 +520,26 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                     if (!caller.IsValid) return;
                     Api.Notify(caller, T("menu_main"), T(removed ? "warn_revoked" : "warn_not_found"),
                         removed ? AdminNotice.Success : AdminNotice.Warning);
-                    OpenWarnings(caller, steamId, name, backMenu: historyBackMenu);
+                    OpenWarnings(caller, steamId, name, ownOnly, historyBackMenu);
                 });
             }
             catch (Exception ex) { Logger.LogError(ex, "Could not revoke player warning."); }
         });
+    }
+
+    private static void PublishWarningEvent(string key, PlayerWarning warning, Admin? actor = null)
+    {
+        var data = new EventData(key);
+        data.Insert("id", warning.Id);
+        data.Insert("steam_id", warning.SteamId);
+        data.Insert("player_name", warning.PlayerName);
+        data.Insert("reason", warning.Reason);
+        data.Insert("source", warning.Source);
+        data.Insert("issuer_id", warning.AdminId);
+        data.Insert("issued_at", warning.CreatedAt);
+        data.Insert("message", warning.Message);
+        if (actor is not null) data.Insert("actor", actor);
+        Api.InvokeDynamicEvent(data);
     }
 
     private void OpenWarnings(CCSPlayerController caller, ulong steamId, string name, bool ownOnly = false,
@@ -569,9 +591,9 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 DateTimeOffset.FromUnixTimeSeconds(warning.RevokedAt.Value).ToString("g")));
         var menu = Api.CreateMenu("chat_moderation:warning_details", T("menu_warning", warning.Id),
             backMenu: historyMenu);
-        if (!ownOnly && warning.RevokedAt is null && CanRevoke(caller, warning))
+        if (warning.RevokedAt is null && CanRevoke(caller, warning))
             menu.AddMenuOption("revoke", T("menu_revoke", warning.Id), (_, _) =>
-                RevokeWarning(caller, steamId, name, warning.Id, historyBackMenu));
+                RevokeWarning(caller, steamId, name, warning.Id, historyBackMenu, ownOnly));
         menu.AddMenuOption("reason", T("menu_reason", reason), (_, _) => { }, disabled: true);
         menu.AddMenuOption("source", T("menu_source", source), (_, _) => { }, disabled: true);
         menu.AddMenuOption("issued", T("menu_issued",
@@ -583,7 +605,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     }
 
     private void RevokeWarning(CCSPlayerController caller, ulong steamId, string name, long warningId,
-        IDynamicMenu? historyBackMenu = null)
+        IDynamicMenu? historyBackMenu = null, bool ownOnly = false)
     {
         if (caller.AuthorizedSteamID is null || caller.Admin() is null) return;
         _ = Task.Run(async () =>
@@ -599,7 +621,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                         Api.Notify(caller, T("menu_main"), T("warn_not_found"), AdminNotice.Warning);
                         return;
                     }
-                    ApplyRevoke(caller, steamId, name, warning, historyBackMenu);
+                    ApplyRevoke(caller, steamId, name, warning, historyBackMenu, ownOnly);
                 });
             }
             catch (Exception ex) { Logger.LogError(ex, "Could not revoke player warning."); }
@@ -683,11 +705,35 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         menu.AddMenuOption("history", T("menu_view"), (_, _) =>
             OpenWarnings(caller, target.AuthorizedSteamID!.SteamId64, target.PlayerName, backMenu: menu));
         menu.AddMenuOption("warn", T("menu_issue"), (_, _) =>
+            OpenSelectWarningReasonMenu(caller, target, menu),
+            disabled: !CanWarn(caller, target) && caller.Admin()?.Id != target.Admin()?.Id,
+            viewFlags: Api.GetCurrentPermissionFlags(WarnPermission));
+        menu.Open(caller);
+    }
+
+    private void OpenSelectWarningReasonMenu(CCSPlayerController caller, CCSPlayerController target,
+        IDynamicMenu backMenu)
+    {
+        if (!target.IsValid || caller.Admin() is null) return;
+        var menu = Api.CreateMenu("chat_moderation:reasons", T("menu_select_reason"), backMenu: backMenu);
+        menu.AddMenuOption("own_reason", T("menu_own_reason"), (_, _) =>
         {
             caller.PrintToChat(T("enter_reason"));
-            Api.HookNextPlayerMessage(caller, reason => IssueManualWarning(caller, target, reason));
-        }, disabled: !CanWarn(caller, target),
-            viewFlags: Api.GetCurrentPermissionFlags(WarnPermission));
+            Api.HookNextPlayerMessage(caller, reason =>
+            {
+                if (IssueManualWarning(caller, target, reason)) Api.CloseMenu(caller);
+            });
+        });
+        foreach (var reason in Config.WarningReasons.Where(x => !x.HideFromMenu &&
+                     !string.IsNullOrWhiteSpace(x.Title) && !string.IsNullOrWhiteSpace(x.Text)))
+        {
+            if (!CanWarn(caller, target, reason.Text)) continue;
+            menu.AddMenuOption(reason.Title, _translations.GetValueOrDefault(reason.Title, reason.Title),
+                (_, _) =>
+                {
+                    if (IssueManualWarning(caller, target, reason.Text)) Api.CloseMenu(caller);
+                });
+        }
         menu.Open(caller);
     }
 

@@ -13,6 +13,11 @@
   "NotifyModeratorsAtThreshold": true,
   "MaxStoredMessageLength": 300,
   "RegexTimeoutMilliseconds": 50,
+  "WarningReasons": [
+    { "Title": "reason_advertising", "Text": "reason_advertising", "HideFromMenu": false },
+    { "Title": "reason_caps", "Text": "reason_caps", "HideFromMenu": false },
+    { "Title": "reason_repeat", "Text": "reason_repeat", "HideFromMenu": false }
+  ],
   "Rules": [
     {
       "Id": "links",

@@ -1,0 +1,39 @@
+{
+  "Enabled": true,
+  "Webhook": "",
+  "Issued": true,
+  "Removed": true,
+  "Automatic": true,
+  "Test": true,
+  "IncludeWarningId": true,
+  "IncludeSource": true,
+  "IncludeMessage": true,
+  "IncludeOriginalIssuer": true,
+  "IncludeRemovedAt": true,
+  "IssuedTemplate": {
+    "Title": "Варн выдан #{warningid}",
+    "Description": "**{player}** получил варн от **{admin}**.",
+    "Emoji": "",
+    "Color": 15105570
+  },
+  "RemovedTemplate": {
+    "Title": "Варн снят #{warningid}",
+    "Description": "**{admin}** снял варн с **{player}**.",
+    "Emoji": "",
+    "Color": 5763719
+  },
+  "Fields": {
+    "Player": true,
+    "Administrator": true,
+    "Reason": true,
+    "Duration": false,
+    "IssuedAt": true,
+    "ExpiresAt": false,
+    "Type": true,
+    "Ip": false,
+    "Server": true,
+    "Map": false,
+    "Online": false,
+    "PreviousPunishments": false
+  }
+}

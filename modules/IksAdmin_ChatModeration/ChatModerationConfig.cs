@@ -18,12 +18,25 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public bool NotifyModeratorsAtThreshold { get; set; } = true;
     public int MaxStoredMessageLength { get; set; } = 300;
     public int RegexTimeoutMilliseconds { get; set; } = 50;
+    public List<WarningReason> WarningReasons { get; set; } =
+    [
+        new() { Title = "reason_advertising", Text = "reason_advertising" },
+        new() { Title = "reason_caps", Text = "reason_caps" },
+        new() { Title = "reason_repeat", Text = "reason_repeat" }
+    ];
     public List<ChatRule> Rules { get; set; } =
     [
         new() { Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*", Action = "Warn", BlockMessage = true },
         new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false },
         new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false }
     ];
+}
+
+public sealed class WarningReason
+{
+    public string Title { get; set; } = "";
+    public string Text { get; set; } = "";
+    public bool HideFromMenu { get; set; }
 }
 
 public sealed class ChatRule
