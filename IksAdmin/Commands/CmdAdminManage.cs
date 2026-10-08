@@ -139,7 +139,7 @@ public static class CmdAdminManage
         {
             var result = await _api.CreateWarn(warn);
             if (result.QueryStatus != 0)
-                Server.NextFrame(() => info.Reply(result.QueryMessage));
+                Server.NextFrame(() => info.Reply(_localizer["ActionError.WarnSaveFailed"]));
         });
     }
 
@@ -151,7 +151,7 @@ public static class CmdAdminManage
         {
             var result = await _api.CreateWarn(new Warn(admin.Id, admin.Id, 0, "test"));
             if (result.QueryStatus != 0)
-                Server.NextFrame(() => info.Reply(result.QueryMessage));
+                Server.NextFrame(() => info.Reply(_localizer["ActionError.WarnSaveFailed"]));
         });
     }
 

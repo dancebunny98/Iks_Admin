@@ -7,6 +7,22 @@ public static class MenuUtils
 {
     static IIksAdminApi _api = AdminUtils.CoreApi;
     static IStringLocalizer _localizer = _api.Localizer;
+    private static readonly Dictionary<string, string> StockLabels = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Example reason title 1"] = "MenuConfigured.ExampleReason1",
+        ["Example reason title 2"] = "MenuConfigured.ExampleReason2",
+        ["Cheats"] = "MenuConfigured.Cheats",
+        ["AFK"] = "MenuConfigured.Afk",
+        ["1 мин"] = "MenuConfigured.Minute",
+        ["1 час"] = "MenuConfigured.Hour",
+        ["1 день"] = "MenuConfigured.Day",
+        ["1 неделя"] = "MenuConfigured.Week",
+        ["1 месяц"] = "MenuConfigured.Month",
+        ["Навсегда"] = "MenuConfigured.Permanent"
+    };
+
+    public static string LocalizeConfiguredLabel(string value) =>
+        StockLabels.TryGetValue(value.Trim(), out var key) ? _localizer[key] : value;
     public static string GenerateMenuId(string id)
     {
         return $"iksadmin:menu:{id}";

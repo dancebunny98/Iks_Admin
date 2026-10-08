@@ -8,6 +8,12 @@ public static class MsgOther
 {
     private static AdminApi _api = Main.AdminApi!;
     private static IStringLocalizer _localizer = _api.Localizer;
+    private static string IssuerName(int id)
+    {
+        var issuer = AdminUtils.Admin(id);
+        return issuer is null ? _localizer["Other.Unknown"] :
+            issuer.IsConsole ? _localizer["Other.Console"] : issuer.Name;
+    }
 
     public static void PrintWarns(CCSPlayerController? caller, Admin admin)
     {
@@ -17,7 +23,7 @@ public static class MsgOther
         {
             string warnTemplate = _localizer["Message.WarnsTemplate"].AReplace(
                 ["id", "reason", "admin", "created", "duration", "end"],
-                [warn.Id, warn.Reason, AdminUtils.Admin(warn.AdminId)?.Name ?? "Unknown",
+                [warn.Id, warn.Reason, IssuerName(warn.AdminId),
                     Utils.GetDateString(warn.CreatedAt), 
                     $"{(warn.Duration == 0 ? _localizer["Other.Never"] : warn.Duration + _localizer["Other.Minutes"])}", 
                     Utils.GetDateString(warn.EndAt)]
@@ -31,7 +37,7 @@ public static class MsgOther
     {
         string warnTemplate = _localizer["Message.WarnsTemplate"].AReplace(
                 ["id", "reason", "admin", "created", "duration", "end"],
-                [warn.Id, warn.Reason, AdminUtils.Admin(warn.AdminId)?.Name ?? "Unknown",
+                [warn.Id, warn.Reason, IssuerName(warn.AdminId),
                     Utils.GetDateString(warn.CreatedAt), 
                     AdminUtils.GetDurationString(warn.Duration), 
                     Utils.GetDateString(warn.EndAt)]

@@ -14,7 +14,7 @@
     "MenuOption.Postfix.Unbanned" : " [РОЗБАНЕНИЙ]",
     "MenuOption.Postfix.Muted" : " [МУТ]",
     "MenuOption.Postfix.Gagged" : " [ГАГ]",
-    "MenuOption.Postfix.Silenced" : " [SILENCE]",
+    "MenuOption.Postfix.Silenced" : " [ЧАТ І ГОЛОС]",
     
     // Global chat hooks
     "Message.CH.FlagsSet" : "Напишіть прапори в чат: {red}!abc...",
@@ -89,9 +89,9 @@
     "MenuOption.CM.Mute" : "Мут",
     "MenuOption.CM.Gag" : "Гаг",
     "MenuOption.CM.Silence" : "Все",
-    "MenuOption.CM.MuteVoice" : "MuteVoice (голос)",
-    "MenuOption.CM.MuteChat" : "MuteChat (чат)",
-    "MenuOption.CM.MuteAll" : "MuteAll (чат + голос)",
+    "MenuOption.CM.MuteVoice" : "Мут голосу",
+    "MenuOption.CM.MuteChat" : "Блокування чату",
+    "MenuOption.CM.MuteAll" : "Блокування чату й голосу",
     "MenuOption.CM.Remove" : "Видалити блокування",
     "MenuOption.CM.RemoveOffline" : "Видалити блокування (офлайн)",
 
@@ -124,8 +124,8 @@
     "MenuTitle.BanType" : "Виберіть тип бана",
     "MenuOption.BanSteamId" : "Steam ID",
     "MenuOption.BanIp" : "IP",
-    "MenuTitle.AddOfflineBan" : "Додати бан (offline)",
-    "MenuOption.AddOfflineBan" : "Додати бан (offline)",
+    "MenuTitle.AddOfflineBan" : "Додати бан (офлайн)",
+    "MenuOption.AddOfflineBan" : "Додати бан (офлайн)",
     "MenuTitle.Unban" : "Зняти бан",
     "MenuOption.Unban" : "Зняти бан",
 
@@ -162,16 +162,16 @@
     "ActionSuccess.MuteSuccess" : "{green}Гравець успішно замучений!",
     "ActionSuccess.UnMuteSuccess" : "{green}З гравця успішно знято мут!",
     "ActionSuccess.UnBanSuccess" : "{green}Ціль успішно розбанена!",
-    "ActionSuccess.UnSilenceSuccess" : "{green}З гравця успішно знято silence!",
-    "ActionSuccess.SilenceSuccess" : "{green}Гравцю успішно видано silence!",
+    "ActionSuccess.UnSilenceSuccess" : "{green}З гравця знято блокування чату й голосу!",
+    "ActionSuccess.SilenceSuccess" : "{green}Гравцю заблоковано чат і голос!",
     "ActionSuccess.RconSuccess" : "{green}Ркон команда відправлена! Дивіться відповідь у консолі!",
     "ActionSuccess.AdminDeleted" : "{green}Адмін видалений!",
 
     "Message.WhenGag" : "{red}У вас є активний гаг!\nЗакінчиться: {red}{date} ",
-    "Message.WhenSilence" : "{red}У вас є активний silence!\nЗакінчиться: {red}{date} ",
+    "Message.WhenSilence" : "{red}У вас активне блокування чату й голосу!\nЗакінчиться: {red}{date} ",
     "Message.WhenGagEnd" : "{green}Гаг знято! Ви знову можете писати!",
     "Message.WhenMuteEnd" : "{green}Мут знято! Ви знову можете говорити!",
-    "Message.WhenSilenceEnd" : "{green}Silence знято! Ви знову можете говорити!",
+    "Message.WhenSilenceEnd" : "{green}Блокування чату й голосу знято! Ви знову можете говорити!",
     "Message.PrintOwnReason" : "Введіть свою причину в чат: {red}!причина",
     "Message.Warns" : "Варни адміна {red}{name}{white}:{warnsTemplate}",
     "Message.Warns.DeleteWarn" : "Напишіть {red}!delete{white} для зняття варна",
@@ -190,9 +190,9 @@
     "Announce.GagAdded" : "Адмін {red}{admin}{white} видав {red}гаг{white} гравцю {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
     "Announce.UnGagged": "Адмін {red}{admin}{white} зняв {red}гаг{white} з гравця {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
     "Announce.MuteAdded" : "Адмін {red}{admin}{white} видав {red}мут{white} гравцю {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
-    "Announce.UnMuted": "Адмін {red}{admin}{white} зняв {red}мут{white} з гравця {red}{name}\nПричина: {red}{reason}",
-    "Announce.SilenceAdded" : "Адмін {red}{admin}{white} видав {red}silence{white} гравцю {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
-    "Announce.UnSilenced": "Адмін {red}{admin}{white} зняв {red}silence{white} з гравця {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
+    "Announce.UnMuted": "Адмін {red}{admin}{white} зняв {red}мут{white} з гравця {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
+    "Announce.SilenceAdded" : "Адмін {red}{admin}{white} заблокував чат і голос гравцю {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
+    "Announce.UnSilenced": "Адмін {red}{admin}{white} зняв блокування чату й голосу з гравця {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}",
     "Announce.Warn": "Адмін {red}{admin}{white} видав {red}попередження{white} адміна {red}{name}\nПричина: {red}{reason}\nТермін: {red}{duration}\nКількість попереджень: {red}{now}{white}/{red}{max}",
     "Announce.WarnDelete": "Адмін {red}{admin}{white} зняв {red}попередження{white} з адміна {red}{name}\nID: {red}{id}\nПричина: {red}{reason}\nКількість попереджень: {red}{now}{white}/{red}{max}",
     "Announce.Kick": "Адмін {red}{admin}{white} кікнув гравця {red}{name}\nПричина: {red}{reason}",
@@ -213,11 +213,26 @@
     "Other.Hours" : " год.",
     "Other.Days" : " дн.",
     "Other.Never" : "Назавжди",
+    "MenuConfigured.ExampleReason1" : "Приклад причини 1",
+    "MenuConfigured.ExampleReason2" : "Приклад причини 2",
+    "MenuConfigured.Cheats" : "Чіти",
+    "MenuConfigured.Afk" : "Неактивність",
+    "MenuConfigured.Minute" : "1 хвилина",
+    "MenuConfigured.Hour" : "1 година",
+    "MenuConfigured.Day" : "1 день",
+    "MenuConfigured.Week" : "1 тиждень",
+    "MenuConfigured.Month" : "1 місяць",
+    "MenuConfigured.Permanent" : "Назавжди",
+    "Other.Unknown" : "Невідомо",
+    "Other.Console" : "Консоль",
+    "Command.Spec" : "Перевести гравця в спостерігачі",
+    "Command.TestWarn" : "Видати собі тестовий варн",
+    "ActionError.WarnSaveFailed" : "Не вдалося зберегти варн",
     "Other.NullItem" : "НІ",
 
     "Other.Team.CT" : "CT", // адмін iks перемістив гравця litler в команду CT
     "Other.Team.T" : "T", // адмін iks перемістив гравця litler в команду T
-    "Other.Team.Spec" : "SPEC", // адмін iks перемістив гравця litler в команду SPEC
+    "Other.Team.Spec" : "Спостерігачі", // адмін iks перемістив гравця litler в команду SPEC
 
     // v6
     "Message.Muted" : "Ви не можете говорити!\n{red}Мут {white}закінчиться в {red}{time}",
@@ -229,6 +244,15 @@
     // v16
     "Announce.Rename": "Адмін {red}{admin}{white} перейменував гравця {red}{name}{white} на {red}{newName}{white}!",
     "Message.OnRename": "Введіть новий нік гравця: !s1mple",
-    "MenuOption.PM.Rename": "Перейменувати гравця"
+    "MenuOption.PM.Rename": "Перейменувати гравця",
+
+    "Message.FakeHideMessage" : "Гравець {red}{name} відключився.",
+    "Message.CooldownPassed" : "Ви знову можете користуватися функцією {red}{function}",
+    "ActionError.InCooldownForRound" : "{red}Ви не можете використовувати цю функцію до наступного раунду!",
+    "ActionError.InCooldownForTime" : "{red}Ви не можете використовувати цю функцію ще {time} сек!",
+    "AntiFlood.MessageBlocked" : "{red}Не флудіть у чаті! Повідомлення заблоковано.",
+    "AntiFlood.GagApplied" : "{red}Ви надто часто пишете в чат — тимчасово обмежені в чаті.",
+    "AntiFlood.GagReason" : "Автоматичне блокування чату: флуд",
+    "AntiFlood.KickReason" : "Флуд у чаті (антифлуд)"
 
 }

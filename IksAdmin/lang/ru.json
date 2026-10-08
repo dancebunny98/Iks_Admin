@@ -1,5 +1,5 @@
 {
-    "Tag" : "[{red}ADMIN{white}]",
+    "Tag" : "[{red}АДМИН{white}]",
 
     "MenuTitle.AdminMain" : "Админ меню",
     "MenuTitle.HELP_SelectItem" : "Выберите:",
@@ -14,7 +14,7 @@
     "MenuOption.Postfix.Unbanned" : " [РАЗБАНЕН]",
     "MenuOption.Postfix.Muted" : " [МУТ]",
     "MenuOption.Postfix.Gagged" : " [ГАГ]",
-    "MenuOption.Postfix.Silenced" : " [SILENCE]",
+    "MenuOption.Postfix.Silenced" : " [ЧАТ И ГОЛОС]",
     
     // Global chat hooks
     "Message.CH.FlagsSet" : "Напишите флаги в чат: {red}!abc...",
@@ -89,9 +89,9 @@
     "MenuOption.CM.Mute" : "Мут",
     "MenuOption.CM.Gag" : "Гаг",
     "MenuOption.CM.Silence" : "Всё",
-    "MenuOption.CM.MuteVoice" : "MuteVoice (голос)",
-    "MenuOption.CM.MuteChat" : "MuteChat (чат)",
-    "MenuOption.CM.MuteAll" : "MuteAll (чат + голос)",
+    "MenuOption.CM.MuteVoice" : "Мут голоса",
+    "MenuOption.CM.MuteChat" : "Блокировка чата",
+    "MenuOption.CM.MuteAll" : "Блокировка чата и голоса",
     "MenuOption.CM.Remove" : "Удалить блокировку",
     "MenuOption.CM.RemoveOffline" : "Удалить блокировку (оффлайн)",
 
@@ -124,8 +124,8 @@
     "MenuTitle.BanType" : "Выберите тип бана",
     "MenuOption.BanSteamId" : "Steam ID",
     "MenuOption.BanIp" : "IP",
-    "MenuTitle.AddOfflineBan" : "Добавить бан (offline)",
-    "MenuOption.AddOfflineBan" : "Добавить бан (offline)",
+    "MenuTitle.AddOfflineBan" : "Добавить бан (офлайн)",
+    "MenuOption.AddOfflineBan" : "Добавить бан (офлайн)",
     "MenuTitle.Unban" : "Снять бан",
     "MenuOption.Unban" : "Снять бан",
 
@@ -162,16 +162,16 @@
     "ActionSuccess.MuteSuccess" : "{green}Игрок успешно замучен!",
     "ActionSuccess.UnMuteSuccess" : "{green}С игрока успешно снят мут!",
     "ActionSuccess.UnBanSuccess" : "{green}Цель успешно разбанена!",
-    "ActionSuccess.UnSilenceSuccess" : "{green}С игрока успешно снят silence!",
-    "ActionSuccess.SilenceSuccess" : "{green}Игроку успешно выдан silence!",
+    "ActionSuccess.UnSilenceSuccess" : "{green}С игрока снята блокировка чата и голоса!",
+    "ActionSuccess.SilenceSuccess" : "{green}Игроку заблокированы чат и голос!",
     "ActionSuccess.RconSuccess" : "{green}Ркон команда отправлена! Смотрите ответ в консоли!",
     "ActionSuccess.AdminDeleted" : "{green}Админ удалён!",
 
     "Message.WhenGag" : "{red}У вас есть активный гаг!\nЗавершится: {red}{date} ",
-    "Message.WhenSilence" : "{red}У вас есть активный silence!\nЗавершится: {red}{date} ",
+    "Message.WhenSilence" : "{red}У вас активная блокировка чата и голоса!\nЗавершится: {red}{date} ",
     "Message.WhenGagEnd" : "{green}Гаг снят! Вы снова можете писать!",
     "Message.WhenMuteEnd" : "{green}Мут снят! Вы снова можете говорить!",
-    "Message.WhenSilenceEnd" : "{green}Silence снят! Вы снова можете говорить!",
+    "Message.WhenSilenceEnd" : "{green}Блокировка чата и голоса снята! Вы снова можете говорить!",
     "Message.PrintOwnReason" : "Введите свою причину в чат: {red}!причина",
     "Message.Warns" : "Варны админа {red}{name}{white}:{warnsTemplate}",
     "Message.Warns.DeleteWarn" : "Напишите {red}!delete{white} для снятия варна",
@@ -191,8 +191,8 @@
     "Announce.UnGagged": "Админ {red}{admin}{white} снял {red}гаг{white} с игрока {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
     "Announce.MuteAdded" : "Админ {red}{admin}{white} выдал {red}мут{white} игроку {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
     "Announce.UnMuted": "Админ {red}{admin}{white} снял {red}мут{white} с игрока {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
-    "Announce.SilenceAdded" : "Админ {red}{admin}{white} выдал {red}silence{white} игроку {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
-    "Announce.UnSilenced": "Админ {red}{admin}{white} снял {red}silence{white} с игрока {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
+    "Announce.SilenceAdded" : "Админ {red}{admin}{white} заблокировал чат и голос игроку {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
+    "Announce.UnSilenced": "Админ {red}{admin}{white} снял блокировку чата и голоса с игрока {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}",
     "Announce.Warn": "Админ {red}{admin}{white} выдал {red}предупреждение{white} админу {red}{name}\nПричина: {red}{reason}\nСрок: {red}{duration}\nКол-во предупреждений: {red}{now}{white}/{red}{max}",
     "Announce.WarnDelete": "Админ {red}{admin}{white} снял {red}предупреждение{white} с админа {red}{name}\nID: {red}{id}\nПричина: {red}{reason}\nКол-во предупреждений: {red}{now}{white}/{red}{max}",
     "Announce.Kick": "Админ {red}{admin}{white} кикнул игрока {red}{name}\nПричина: {red}{reason}",
@@ -213,11 +213,26 @@
     "Other.Hours" : " час.",
     "Other.Days" : " дн.",
     "Other.Never" : "Навсегда",
+    "MenuConfigured.ExampleReason1" : "Пример причины 1",
+    "MenuConfigured.ExampleReason2" : "Пример причины 2",
+    "MenuConfigured.Cheats" : "Читы",
+    "MenuConfigured.Afk" : "Неактивность",
+    "MenuConfigured.Minute" : "1 минута",
+    "MenuConfigured.Hour" : "1 час",
+    "MenuConfigured.Day" : "1 день",
+    "MenuConfigured.Week" : "1 неделя",
+    "MenuConfigured.Month" : "1 месяц",
+    "MenuConfigured.Permanent" : "Навсегда",
+    "Other.Unknown" : "Неизвестно",
+    "Other.Console" : "Консоль",
+    "Command.Spec" : "Перевести игрока в наблюдатели",
+    "Command.TestWarn" : "Выдать себе тестовый варн",
+    "ActionError.WarnSaveFailed" : "Не удалось сохранить варн",
     "Other.NullItem" : "НЕТ",
 
     "Other.Team.CT" : "CT", // админ iks переместил игрока litler в команду CT
     "Other.Team.T" : "T", // админ iks переместил игрока litler в команду T
-    "Other.Team.Spec" : "SPEC", // админ iks переместил игрока litler в команду SPEC
+    "Other.Team.Spec" : "Наблюдатели", // админ iks переместил игрока litler в команду SPEC
     
     // v6
     "Message.Muted" : "Вы не можете говорить!\n{red}Мут {white}закончится в {red}{time}",

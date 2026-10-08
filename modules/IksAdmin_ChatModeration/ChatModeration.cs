@@ -38,9 +38,12 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     private string Reason(ChatRule rule) =>
         _translations.GetValueOrDefault(rule.Reason, rule.Reason);
 
-    private string Source(PlayerWarning warning) => warning.Source == "automatic"
-        ? T("source_automatic")
-        : $"{T("source_moderator")} ({Api.AllAdmins.FirstOrDefault(x => x.Id == warning.AdminId)?.Name ?? warning.IssuedBy?.ToString() ?? "?"})";
+    private string Source(PlayerWarning warning)
+    {
+        if (warning.Source == "automatic") return T("source_automatic");
+        if (warning.AdminId == Api.ConsoleAdmin.Id) return T("source_console");
+        return $"{T("source_moderator")} ({Api.AllAdmins.FirstOrDefault(x => x.Id == warning.AdminId)?.Name ?? warning.IssuedBy?.ToString() ?? "?"})";
+    }
 
     public override void InitializeCommands()
     {

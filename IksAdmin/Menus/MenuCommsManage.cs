@@ -230,7 +230,7 @@ public static class MenuCommsManage
                         continue;
                 }
             }
-            menu.AddMenuOption(reason.Title, reason.Title, (_, _) => {
+            menu.AddMenuOption(reason.Title, MenuUtils.LocalizeConfiguredLabel(reason.Title), (_, _) => {
                 if (reason.Duration == null)
                 {
                     OpenMuteTimeSelectMenu(caller, target, reason, menu);
@@ -278,7 +278,7 @@ public static class MenuCommsManage
                         continue;
                 }
             }
-            menu.AddMenuOption(reason.Title, reason.Title, (_, _) => {
+            menu.AddMenuOption(reason.Title, MenuUtils.LocalizeConfiguredLabel(reason.Title), (_, _) => {
                 if (reason.Duration == null)
                 {
                     OpenGagTimeSelectMenu(caller, target, reason, menu);
@@ -320,7 +320,7 @@ public static class MenuCommsManage
                     (caller.Admin()!.MinMuteTime != 0 && reason.Duration < caller.Admin()!.MinMuteTime))
                     continue;
             }
-            menu.AddMenuOption(reason.Title, reason.Title, (_, _) => {
+            menu.AddMenuOption(reason.Title, MenuUtils.LocalizeConfiguredLabel(reason.Title), (_, _) => {
                 if (reason.Duration == null)
                 {
                     OpenSilenceTimeSelectMenu(caller, target, reason, menu);
@@ -385,7 +385,7 @@ public static class MenuCommsManage
             if (reason.MaxTime != 0 && (time.Key > reason.MaxTime * 60 || time.Key == 0)) {
                 continue;
             }
-            menu.AddMenuOption("mute_time_" + time.Key, time.Value, (_, _) => {
+            menu.AddMenuOption("mute_time_" + time.Key, MenuUtils.LocalizeConfiguredLabel(time.Value), (_, _) => {
                 _api.CloseMenu(caller);
                 comm.Duration = time.Key*60;
                 Task.Run(async () =>
@@ -441,7 +441,7 @@ public static class MenuCommsManage
             if (reason.MaxTime != 0 && (time.Key > reason.MaxTime * 60 || time.Key == 0)) {
                 continue;
             }
-            menu.AddMenuOption("gag_time_" + time.Key, time.Value, (_, _) => {
+            menu.AddMenuOption("gag_time_" + time.Key, MenuUtils.LocalizeConfiguredLabel(time.Value), (_, _) => {
                 _api.CloseMenu(caller);
                 comm.Duration = time.Key*60;
                 Task.Run(async () =>
@@ -492,7 +492,7 @@ public static class MenuCommsManage
             if (reason.MaxTime != 0 && (time.Key > reason.MaxTime * 60 || time.Key == 0)) {
                 continue;
             }
-            menu.AddMenuOption("silence_time_" + time.Key, time.Value, (_, _) => {
+            menu.AddMenuOption("silence_time_" + time.Key, MenuUtils.LocalizeConfiguredLabel(time.Value), (_, _) => {
                 _api.CloseMenu(caller);
                 comm.Duration = time.Key*60;
                 Task.Run(async () =>

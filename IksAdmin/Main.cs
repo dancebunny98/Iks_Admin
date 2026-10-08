@@ -530,10 +530,10 @@ public class Main : BasePlugin
             minArgs: 2,
             whoCanExecute: CommandUsage.CLIENT_AND_SERVER
         );
-        AdminApi.AddNewCommand("am_testwarn", "Issue a test warning to yourself",
+        AdminApi.AddNewCommand("am_testwarn", Localizer["Command.TestWarn"],
             "other.warn_self", "css_am_testwarn", CmdAdminManage.TestWarn,
             minArgs: 0, whoCanExecute: CommandUsage.CLIENT_ONLY);
-        AdminApi.AddNewCommand("spec", "Move a player to spectators", "players_manage.spec",
+        AdminApi.AddNewCommand("spec", Localizer["Command.Spec"], "players_manage.spec",
             "css_spec <player>", CmdPm.Spec, minArgs: 1,
             whoCanExecute: CommandUsage.CLIENT_AND_SERVER);
         AdminApi.AddNewCommand(

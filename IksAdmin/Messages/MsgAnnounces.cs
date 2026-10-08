@@ -203,8 +203,8 @@ public static class MsgAnnounces
     public static void Warn(Warn warn)
     {
         AdminUtils.PrintToServer(_localizer["Announce.Warn"].Value
-                .Replace("{admin}", AdminUtils.Admin(warn.AdminId)!.CurrentName)
-                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? "Unknown")
+                .Replace("{admin}", WarnAdminName(warn.Admin))
+                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? _localizer["Other.Unknown"])
                 .Replace("{reason}", warn.Reason)
                 .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
                 .Replace("{max}", _api.Config.MaxWarns.ToString())
@@ -215,14 +215,18 @@ public static class MsgAnnounces
     public static void WarnDelete(Warn warn)
     {
         AdminUtils.PrintToServer(_localizer["Announce.WarnDelete"].Value
-                .Replace("{admin}", warn.DeletedByAdmin?.CurrentName ?? "Unknown")
-                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? "Unknown")
+                .Replace("{admin}", WarnAdminName(warn.DeletedByAdmin))
+                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? _localizer["Other.Unknown"])
                 .Replace("{reason}", warn.Reason)
                 .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
                 .Replace("{max}", _api.Config.MaxWarns.ToString())
                 .Replace("{id}", warn.Id.ToString()), tag: _localizer["Tag"]
         );
     }
+
+    private static string WarnAdminName(Admin? admin) => admin is null
+        ? _localizer["Other.Unknown"]
+        : admin.IsConsole ? _localizer["Other.Console"] : admin.CurrentName;
 
     public static void AdminDeleted(Admin actioneer, Admin admin)
     {

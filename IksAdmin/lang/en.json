@@ -89,9 +89,9 @@
     "MenuOption.CM.Mute" : "Mute",
     "MenuOption.CM.Gag" : "Gag",
     "MenuOption.CM.Silence" : "Silence",
-    "MenuOption.CM.MuteVoice" : "MuteVoice (voice)",
-    "MenuOption.CM.MuteChat" : "MuteChat (chat)",
-    "MenuOption.CM.MuteAll" : "MuteAll (chat + voice)",
+    "MenuOption.CM.MuteVoice" : "Mute voice",
+    "MenuOption.CM.MuteChat" : "Block text chat",
+    "MenuOption.CM.MuteAll" : "Mute chat and voice",
     "MenuOption.CM.Remove" : "Remove Block",
     "MenuOption.CM.RemoveOffline" : "Remove Block (offline)",
 
@@ -213,11 +213,26 @@
     "Other.Hours" : " hr.",
     "Other.Days" : " days.",
     "Other.Never" : "Never",
+    "MenuConfigured.ExampleReason1" : "Example reason 1",
+    "MenuConfigured.ExampleReason2" : "Example reason 2",
+    "MenuConfigured.Cheats" : "Cheating",
+    "MenuConfigured.Afk" : "Inactive",
+    "MenuConfigured.Minute" : "1 minute",
+    "MenuConfigured.Hour" : "1 hour",
+    "MenuConfigured.Day" : "1 day",
+    "MenuConfigured.Week" : "1 week",
+    "MenuConfigured.Month" : "1 month",
+    "MenuConfigured.Permanent" : "Permanent",
+    "Other.Unknown" : "Unknown",
+    "Other.Console" : "Console",
+    "Command.Spec" : "Move a player to spectators",
+    "Command.TestWarn" : "Issue a test warning to yourself",
+    "ActionError.WarnSaveFailed" : "Could not save warning",
     "Other.NullItem" : "NONE",
 
     "Other.Team.CT" : "CT", // admin iks moved player litler to team CT
     "Other.Team.T" : "T", // admin iks moved player litler to team T
-    "Other.Team.Spec" : "SPEC", // admin iks moved player litler to team SPEC
+    "Other.Team.Spec" : "Spectators", // admin iks moved player litler to team SPEC
 
     // v6
     "Message.Muted" : "You can't talk!\n{red}Mutation {white}will end at {red}{time}",
@@ -230,6 +245,11 @@
     "Announce.Rename": "Admin {red}{admin}{white} renamed player {red}{name}{white} to {red}{newName}{white}!",
     "Message.OnRename": "Enter the player's new nickname: !s1mple",
     "MenuOption.PM.Rename": "Rename player",
+
+    "Message.FakeHideMessage" : "Player {red}{name} disconnected.",
+    "Message.CooldownPassed" : "You can use {red}{function} again",
+    "ActionError.InCooldownForRound" : "{red}You cannot use this function until the next round!",
+    "ActionError.InCooldownForTime" : "{red}You cannot use this function for another {time} seconds!",
 
     // AntiFlood
     "AntiFlood.MessageBlocked": "{red}Don't flood the chat! Message blocked.",

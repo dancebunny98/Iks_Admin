@@ -134,7 +134,7 @@ public static class MenuBansManage
                 }
             }
 
-            menu.AddMenuOption(reason.Title, reason.Title, (_, _) => {
+            menu.AddMenuOption(reason.Title, MenuUtils.LocalizeConfiguredLabel(reason.Title), (_, _) => {
                 if (reason.Duration == null)
                 {
                     OpenTimeSelectMenu(caller, target, reason, menu);
@@ -190,7 +190,7 @@ public static class MenuBansManage
                 continue;
             }
 
-            menu.AddMenuOption("ban_time_" + time.Key, time.Value, (_, _) => {
+            menu.AddMenuOption("ban_time_" + time.Key, MenuUtils.LocalizeConfiguredLabel(time.Value), (_, _) => {
                 ban.Duration = time.Key*60;
                 OpenBanTypeSelectMenu(caller, ban);
             });
