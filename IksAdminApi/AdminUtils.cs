@@ -168,6 +168,25 @@ public static class AdminUtils
         if (admin.HasPermissions("other.equals_immunity_action") && admin.HasPermissions("blocks_manage.remove_immunity") && bannedBy.CurrentImmunity <= admin.CurrentImmunity) return true;
         return false;
     }
+    public static bool CanIssueWarn(Admin issuer, Admin target, string reason)
+    {
+        if (issuer.IsConsole) return true;
+        if (string.Equals(reason.Trim(), "test", StringComparison.OrdinalIgnoreCase) && issuer.Id == target.Id)
+            return true;
+        return issuer.HasPermissions("admins_manage.warn_add") &&
+               issuer.CurrentImmunity >= target.CurrentImmunity;
+    }
+
+    public static bool CanRemoveWarn(Admin actor, Warn warn)
+    {
+        if (actor.IsConsole) return true;
+        if (warn.IsTest) return true;
+        if (actor.Id == warn.AdminId) return true;
+        if (!actor.HasPermissions("admins_manage.warn_delete")) return false;
+        var issuer = Admin(warn.AdminId);
+        var issuerImmunity = warn.IssuedImmunity ?? issuer?.CurrentImmunity;
+        return issuerImmunity is not null && actor.CurrentImmunity >= issuerImmunity;
+    }
     
     public static bool CanUnComm(Admin admin, PlayerComm comm)
     {
@@ -485,7 +504,7 @@ public static class AdminUtils
             LogDebug($"Admin is null | No Access ✖");
             return false;
         }
-        if (admin!.Warns.Count >= CoreApi.Config.MaxWarns)
+        if (admin!.IsDisabledByWarns)
         {
             return false;
         }

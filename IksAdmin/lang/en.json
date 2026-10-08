@@ -107,6 +107,7 @@
     "MenuOption.PM" : "Player Management",
     "Message.PM.Kick.SetReason" : "Enter kick reason for player {red}{name}{white}: {red}!reason",
     "MenuOption.PM.Kick" : "Kick",
+    "MenuOption.PM.Spec" : "Move to spectators",
     "MenuOption.PM.Team" : "Change Team",
     "MenuOption.PM.Slay" : "Slay",
     "MenuOption.PM.Respawn" : "Respawn",

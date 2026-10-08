@@ -7,6 +7,7 @@ public sealed class PlayerWarning
 {
     public long Id { get; set; }
     public int AdminId { get; set; }
+    public bool IsAdminWarning { get; set; }
     public ulong SteamId { get; set; }
     public string PlayerName { get; set; } = "";
     public string Reason { get; set; } = "";
@@ -14,6 +15,7 @@ public sealed class PlayerWarning
     public string RuleId { get; set; } = "";
     public string Message { get; set; } = "";
     public ulong? IssuedBy { get; set; }
+    public int? IssuedImmunity { get; set; }
     public long CreatedAt { get; set; }
     public long? RevokedAt { get; set; }
     public ulong? RevokedBy { get; set; }
@@ -52,6 +54,7 @@ public sealed class WarningStore(string connectionString)
             ["rule_id"] = "varchar(64) NULL",
             ["message"] = "varchar(512) NULL",
             ["issued_steam_id"] = "bigint unsigned NULL",
+            ["issued_immunity"] = "int NULL",
             ["revoked_by_steam_id"] = "bigint unsigned NULL"
         };
         foreach (var (name, definition) in additions)
@@ -78,10 +81,10 @@ public sealed class WarningStore(string connectionString)
         return await connection.QuerySingleAsync<long>($"""
             INSERT INTO {Table}
                 (admin_id, target_id, target_steam_id, target_name, reason, source,
-                 rule_id, message, issued_steam_id, duration, created_at, end_at, updated_at)
+                 rule_id, message, issued_steam_id, issued_immunity, duration, created_at, end_at, updated_at)
             VALUES
                 (@AdminId, NULL, @SteamId, @PlayerName, @Reason, @Source,
-                 @RuleId, @Message, @IssuedBy, 0, @CreatedAt, 0, @CreatedAt);
+                 @RuleId, @Message, @IssuedBy, @IssuedImmunity, 0, @CreatedAt, 0, @CreatedAt);
             SELECT LAST_INSERT_ID();
             """, warning);
     }
@@ -92,44 +95,71 @@ public sealed class WarningStore(string connectionString)
         await connection.OpenAsync();
         var rows = await connection.QueryAsync<PlayerWarning>($"""
             {SelectSql}
-            WHERE target_id IS NULL AND target_steam_id = @steamId
-            ORDER BY created_at DESC, id DESC LIMIT @limit;
+            WHERE (w.target_steam_id = @steamId OR t.steam_id = CAST(@steamId AS CHAR))
+            ORDER BY w.created_at DESC, w.id DESC LIMIT @limit;
             """, new { steamId, limit = Math.Clamp(limit, 1, 200) });
         return rows.ToList();
     }
 
-    public async Task<List<PlayerWarning>> ActiveAsync(ulong steamId, int activeDays)
+    public async Task<PlayerWarning?> GetAsync(long id, ulong steamId)
     {
-        var since = activeDays <= 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - (long)activeDays * 86400;
+        await using var connection = new MySqlConnection(connectionString);
+        await connection.OpenAsync();
+        return await connection.QuerySingleOrDefaultAsync<PlayerWarning>($"""
+            {SelectSql}
+            WHERE w.id = @id AND (w.target_steam_id = @steamId OR t.steam_id = CAST(@steamId AS CHAR))
+              AND w.deleted_at IS NULL;
+            """, new { id, steamId });
+    }
+
+    public async Task<List<PlayerWarning>> ActiveAsync(ulong steamId)
+    {
         await using var connection = new MySqlConnection(connectionString);
         await connection.OpenAsync();
         var rows = await connection.QueryAsync<PlayerWarning>($"""
             {SelectSql}
-            WHERE target_id IS NULL AND target_steam_id = @steamId
-              AND deleted_at IS NULL AND created_at >= @since
-            ORDER BY created_at DESC, id DESC;
-            """, new { steamId, since });
+            WHERE (w.target_steam_id = @steamId OR t.steam_id = CAST(@steamId AS CHAR))
+              AND w.deleted_at IS NULL
+            ORDER BY w.created_at DESC, w.id DESC;
+            """, new { steamId });
         return rows.ToList();
     }
 
-    public async Task<Dictionary<ulong, int>> ActiveCountsAsync(IEnumerable<ulong> steamIds, int activeDays)
+    public async Task<Dictionary<ulong, int>> ActiveCountsAsync(IEnumerable<ulong> steamIds)
     {
         var ids = steamIds.Distinct().ToArray();
         if (ids.Length == 0) return new();
-        var since = activeDays <= 0 ? 0 : DateTimeOffset.UtcNow.ToUnixTimeSeconds() - (long)activeDays * 86400;
         await using var connection = new MySqlConnection(connectionString);
         await connection.OpenAsync();
         var rows = await connection.QueryAsync<CountRow>($"""
-            SELECT target_steam_id SteamId, COUNT(*) Count
-            FROM {Table}
-            WHERE target_id IS NULL AND target_steam_id IN @ids
-              AND deleted_at IS NULL AND created_at >= @since
-            GROUP BY target_steam_id;
-            """, new { ids, since });
+            SELECT COALESCE(w.target_steam_id, CAST(t.steam_id AS UNSIGNED)) SteamId, COUNT(*) Count
+            FROM {Table} w LEFT JOIN iks_admins t ON t.id = w.target_id
+            WHERE (w.target_steam_id IN @ids OR CAST(t.steam_id AS UNSIGNED) IN @ids)
+              AND w.deleted_at IS NULL
+            GROUP BY COALESCE(w.target_steam_id, CAST(t.steam_id AS UNSIGNED));
+            """, new { ids });
         return rows.ToDictionary(x => x.SteamId, x => x.Count);
     }
 
-    public async Task<bool> RevokeAsync(long id, ulong steamId, int moderatorId, ulong moderatorSteamId)
+    public async Task<List<WarningTarget>> ListTargetsAsync()
+    {
+        await using var connection = new MySqlConnection(connectionString);
+        await connection.OpenAsync();
+        var rows = await connection.QueryAsync<WarningTarget>($"""
+            SELECT grouped.SteamId, grouped.PlayerName, grouped.WarningCount
+            FROM (SELECT COALESCE(w.target_steam_id, CAST(t.steam_id AS UNSIGNED)) SteamId,
+                         MAX(COALESCE(w.target_name, t.name)) PlayerName,
+                         CAST(SUM(CASE WHEN w.deleted_at IS NULL THEN 1 ELSE 0 END) AS SIGNED) WarningCount,
+                         MAX(w.created_at) LastWarning
+                  FROM {Table} w LEFT JOIN iks_admins t ON t.id = w.target_id
+                  GROUP BY COALESCE(w.target_steam_id, CAST(t.steam_id AS UNSIGNED))) grouped
+            WHERE grouped.SteamId IS NOT NULL
+            ORDER BY grouped.LastWarning DESC;
+            """);
+        return rows.ToList();
+    }
+
+    public async Task<bool> RevokeAsync(long id, ulong steamId, int issuerId, int moderatorId, ulong moderatorSteamId)
     {
         await using var connection = new MySqlConnection(connectionString);
         await connection.OpenAsync();
@@ -137,19 +167,22 @@ public sealed class WarningStore(string connectionString)
             UPDATE {Table}
             SET deleted_at = @now, deleted_by = @moderatorId,
                 revoked_by_steam_id = @moderatorSteamId, updated_at = @now
-            WHERE id = @id AND target_id IS NULL AND target_steam_id = @steamId
+            WHERE id = @id AND target_id IS NULL AND target_steam_id = @steamId AND admin_id = @issuerId
               AND deleted_at IS NULL;
-            """, new { id, steamId, moderatorId, moderatorSteamId,
+            """, new { id, steamId, issuerId, moderatorId, moderatorSteamId,
                 now = DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
         return changed == 1;
     }
 
     private const string SelectSql = """
-        SELECT id Id, admin_id AdminId, target_steam_id SteamId, target_name PlayerName,
-               reason Reason, source Source, rule_id RuleId, message Message,
-               issued_steam_id IssuedBy, created_at CreatedAt, deleted_at RevokedAt,
-               revoked_by_steam_id RevokedBy
-        FROM iks_admins_warns
+        SELECT w.id Id, w.admin_id AdminId, (w.target_id IS NOT NULL) IsAdminWarning,
+               COALESCE(w.target_steam_id, CAST(t.steam_id AS UNSIGNED)) SteamId,
+               COALESCE(w.target_name, t.name) PlayerName,
+               w.reason Reason, COALESCE(w.source, 'moderator') Source,
+               w.rule_id RuleId, w.message Message, w.issued_steam_id IssuedBy,
+               w.issued_immunity IssuedImmunity, w.created_at CreatedAt, w.deleted_at RevokedAt,
+               w.revoked_by_steam_id RevokedBy
+        FROM iks_admins_warns w LEFT JOIN iks_admins t ON t.id = w.target_id
         """;
 
     private sealed class ColumnInfo
@@ -164,4 +197,11 @@ public sealed class WarningStore(string connectionString)
         public ulong SteamId { get; set; }
         public int Count { get; set; }
     }
+}
+
+public sealed class WarningTarget
+{
+    public ulong SteamId { get; set; }
+    public string PlayerName { get; set; } = "";
+    public int WarningCount { get; set; }
 }

@@ -115,30 +115,43 @@ public static class CmdAdminManage
 
     public static void Warn(CCSPlayerController? caller, List<string> args, CommandInfo info)
     {
-        // css_am_warn <SteamID> <time> <reason>
-        var admin = caller.Admin()!;
-        var targetAdmin = AdminUtils.ServerAdmin(args[0]);
+        var admin = caller is null ? _api.ConsoleAdmin : caller.Admin();
+        if (admin is null)
+        {
+            info.Reply(_localizer["ActionError.NotEnoughPermissionsForAction"]);
+            return;
+        }
+        var targetAdmin = AdminUtils.Admin(args[0]);
         if (targetAdmin == null)
         {
             info.Reply(_localizer["ActionError.TargetNotFound"]);
             return;
         }
-        if (!_api.CanDoActionWithPlayer(admin.SteamId, targetAdmin.SteamId))
+        var reason = string.Join(" ", args.Skip(1)).Trim();
+        if (reason.Length == 0 || !AdminUtils.CanIssueWarn(admin, targetAdmin, reason))
         {
             info.Reply(_localizer["ActionError.NotEnoughPermissionsForAction"]);
             return;
         }
 
-        var time = args[1];
-        if (!int.TryParse(time, out var timeInt))
-        {
-            throw new ArgumentException("Time must be a number");
-        }
-        var reason = string.Join(" ", args.Skip(2));
-        var warn = new Warn(admin.Id, targetAdmin.Id, timeInt, reason);
+        var warn = new Warn(admin.Id, targetAdmin.Id, 0, reason);
         Task.Run(async () =>
         {
-            await _api.CreateWarn(warn);
+            var result = await _api.CreateWarn(warn);
+            if (result.QueryStatus != 0)
+                Server.NextFrame(() => info.Reply(result.QueryMessage));
+        });
+    }
+
+    public static void TestWarn(CCSPlayerController? caller, List<string> args, CommandInfo info)
+    {
+        var admin = caller?.Admin();
+        if (admin is null) return;
+        Task.Run(async () =>
+        {
+            var result = await _api.CreateWarn(new Warn(admin.Id, admin.Id, 0, "test"));
+            if (result.QueryStatus != 0)
+                Server.NextFrame(() => info.Reply(result.QueryMessage));
         });
     }
 
@@ -164,11 +177,19 @@ public static class CmdAdminManage
 
     public static void Warns(CCSPlayerController? caller, List<string> args, CommandInfo info)
     {
-        if (!int.TryParse(args[0], out var adminId))
+        if (args.Count == 0)
         {
-            throw new ArgumentException("Admin id must be a number");
+            if (caller?.Admin() is { } ownAdmin)
+                MsgOther.PrintWarns(caller, ownAdmin);
+            return;
         }
-        var admin = AdminUtils.ServerAdmin(adminId);
+        if (caller is not null && !caller.HasPermissions("admins_manage.warn_list"))
+        {
+            info.Reply(_localizer["ActionError.NotEnoughPermissionsForAction"]);
+            return;
+        }
+        if (!int.TryParse(args[0], out var adminId)) throw new ArgumentException("Admin id must be a number");
+        var admin = AdminUtils.Admin(adminId);
         if (admin == null)
         {
             info.Reply(_localizer["ActionError.TargetNotFound"]);
@@ -190,7 +211,17 @@ public static class CmdAdminManage
             return;
         }
 
-        var admin = caller.Admin()!;
+        var admin = caller is null ? _api.ConsoleAdmin : caller.Admin();
+        if (admin is null)
+        {
+            info.Reply(_localizer["ActionError.NotEnoughPermissionsForAction"]);
+            return;
+        }
+        if (!AdminUtils.CanRemoveWarn(admin, warn))
+        {
+            info.Reply(_localizer["ActionError.NotEnoughPermissionsForAction"]);
+            return;
+        }
         Task.Run(async () =>
         {
             var result = await _api.DeleteWarn(admin, warn);

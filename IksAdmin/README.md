@@ -14,10 +14,12 @@ The core creates its tables on startup.
 
 ## Warnings
 
+Warnings from chat moderation and administrator warnings share the `MaxWarns` threshold. At three active non-`test` warnings (with the default config), the moderator's group permissions are disabled on every server after synchronization. Warnings do not expire. The exact reason `test` is visible but never counts toward that threshold. Moderators can issue a self-test with `css_am_testwarn`; any administrator can remove a `test` warning. `css_am_warn <SteamID> <reason>`, `css_am_warns [Admin ID]`, and `css_am_warn_remove <Warn ID>` work from chat or server console. `css_spec <player>` moves a player to spectators and is also available next to Kick in the player menu.
+
 Administrator warnings remain in `iks_admins_warns` with a non-null `target_id`.
-They retain the existing `MaxWarns` permission restriction. Player chat warnings
-added by `IksAdmin_ChatModeration` use a null `target_id` and a SteamID in
-`target_steam_id`; they do not affect administrator permissions. Install the
+Player chat warnings added by `IksAdmin_ChatModeration` use a null `target_id`
+and a SteamID in `target_steam_id`; both types count toward an administrator's
+permission threshold unless their reason is `test`. Install the
 matching version of the Chat Moderation module after upgrading the core.
 
 ## Menus and notifications

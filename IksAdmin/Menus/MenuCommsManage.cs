@@ -30,6 +30,14 @@ public static class MenuCommsManage
                 });
             });
         });
+        menu.AddMenuOption("admin_warns", _localizer["MenuOption.Warns"], (_, _) =>
+            MenuWarns.OpenMain(caller, menu),
+            viewFlags: AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_add") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_list") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_delete"));
+        foreach (var option in _api.ChatMenuOptions)
+            menu.AddMenuOption(option.Id, option.Title(), (_, _) => option.OnExecute(caller, menu),
+                viewFlags: option.ViewFlags);
         menu.Open(caller);
     }
 

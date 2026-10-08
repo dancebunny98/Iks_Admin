@@ -29,6 +29,19 @@ public static class CmdPm
             blockedArgs: KicksConfig.Config.BlockedIdentifiers
         );
     }
+    public static void Spec(CCSPlayerController? caller, List<string> args, CommandInfo info)
+    {
+        var issuer = caller?.Admin() ?? _api.ConsoleAdmin;
+        var callerSteamId = caller.GetSteamId();
+        _api.DoActionWithIdentity(caller, args[0], (target, _) =>
+        {
+            if (target is null || !target.IsValid || target.TeamNum == 1) return;
+            if (target.IsBot || _api.CanDoActionWithPlayer(callerSteamId, target.GetSteamId()))
+                _api.ChangeTeam(issuer, target, 1);
+            else
+                info.Reply(_api.Localizer["ActionError.NotEnoughPermissionsForAction"]);
+        }, blockedArgs: AdminUtils.BlockedIdentifiers("css_spec"));
+    }
     public static void Slay(CCSPlayerController? caller, List<string> args, CommandInfo info)
     {
         // css_slay <#uid/#steamId/name/@...>

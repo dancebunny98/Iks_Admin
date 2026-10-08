@@ -595,6 +595,17 @@ public class AdminApi : IIksAdminApi
     
     private readonly List<MainMenuOption> _mainMenuOptions = new();
     public IReadOnlyList<MainMenuOption> MainMenuOptions => _mainMenuOptions;
+    private readonly List<MainMenuOption> _chatMenuOptions = new();
+    public IReadOnlyList<MainMenuOption> ChatMenuOptions => _chatMenuOptions;
+
+    public void RegisterChatMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
+        string viewFlags = "*")
+    {
+        _chatMenuOptions.RemoveAll(o => o.Id == id);
+        _chatMenuOptions.Add(new MainMenuOption(id, title, onExecute, viewFlags));
+    }
+
+    public void UnregisterChatMenuOption(string id) => _chatMenuOptions.RemoveAll(o => o.Id == id);
 
     public void RegisterMainMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
         string viewFlags = "*")
@@ -1350,17 +1361,15 @@ public class AdminApi : IIksAdminApi
         var warns = await GetAllWarnsForAdmin(admin);
         foreach (var warn in warns.ToList())
         {
-            var exWarn = Warns.FirstOrDefault(x => x.Id == warn.Id);
-            if (exWarn != null)
-            {
-                exWarn = warn;
-            }
+            var index = Warns.FindIndex(x => x.Id == warn.Id);
+            if (index >= 0)
+                Warns[index] = warn;
             else
-            {
                 Warns.Add(warn);
-            }
         }
-        var warnsForDelete = Warns.Where(x => warns.All(warn => warn.Id != x.Id)).ToList();
+        var warnsForDelete = Warns.Where(x =>
+            (x.TargetId == admin.Id || x.IsPlayerWarning && x.TargetSteamId == admin.USteamId) &&
+            warns.All(warn => warn.Id != x.Id)).ToList();
         foreach (var warn in warnsForDelete)
         {
             AdminUtils.LogDebug("Delete invalid warn: " + warn.Id);
@@ -1980,9 +1989,16 @@ public class AdminApi : IIksAdminApi
             return new DBResult(null, -2, "Stopped by event WARN");
         }
         warn = eData.Get<Warn>("warn");
+        var issuer = AdminUtils.Admin(warn.AdminId);
+        var target = AdminUtils.Admin(warn.TargetId);
+        if (issuer is null || target is null || !AdminUtils.CanIssueWarn(issuer, target, warn.Reason))
+            return new DBResult(null, 2, "No permission to issue warning");
+        warn.IssuedImmunity = issuer.CurrentImmunity;
+        warn.Duration = 0;
+        warn.EndAt = 0;
         var result = await warn.InsertToBase();
-        if (result.ElementId != null) 
-            Warns.Add(warn);
+        if (result.QueryStatus != 0) return result;
+        Warns.Add(warn);
         await ReloadDataFromDb();
         if (eData.Invoke("create_warn_post") != HookResult.Continue)
         {
@@ -2017,6 +2033,8 @@ public class AdminApi : IIksAdminApi
 
     public async Task<DBResult> DeleteWarn(Admin admin, Warn warn, bool announce = true)
     {
+        if (!AdminUtils.CanRemoveWarn(admin, warn))
+            return new DBResult(null, 2, "No permission to remove warning");
         warn.DeletedBy = admin.Id;
         warn.DeletedAt = AdminUtils.CurrentTimestamp();
         var eData = new EventData("delete_warn");

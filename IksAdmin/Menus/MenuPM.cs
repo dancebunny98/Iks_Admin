@@ -25,6 +25,18 @@ public static class MenuPM
             OpenKickMenu(caller, menu);
         }, viewFlags: AdminUtils.GetCurrentPermissionFlags("players_manage.kick"));
 
+        menu.AddMenuOption("spec", _localizer["MenuOption.PM.Spec"], (_, _) => {
+            MenuUtils.SelectItem<CCSPlayerController?>(caller, "spec", "PlayerName",
+                PlayersUtils.GetOnlinePlayers(true).Where(x => x.TeamNum != 1 &&
+                    (x.IsBot || _api.CanDoActionWithPlayer(caller.GetSteamId(), x.GetSteamId()))).ToList()!,
+                (target, _) =>
+                {
+                    if (target is { IsValid: true } && caller.HasPermissions("players_manage.spec") &&
+                        (target.IsBot || _api.CanDoActionWithPlayer(caller.GetSteamId(), target.GetSteamId())))
+                        _api.ChangeTeam(caller.Admin()!, target, 1);
+                }, backMenu: menu, nullOption: false);
+        }, viewFlags: AdminUtils.GetCurrentPermissionFlags("players_manage.spec"));
+
         menu.AddMenuOption("team", _localizer["MenuOption.PM.Team"], (_, _) => {
             OpenTeamMenu(caller, menu);
         }, viewFlags: AdminUtils.GetCurrentPermissionFlags("players_manage.changeteam") 

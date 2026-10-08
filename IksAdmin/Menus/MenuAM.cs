@@ -29,13 +29,6 @@ public static class MenuAM
         }, 
         viewFlags: AdminUtils.GetAllPermissionGroupFlags("admins_manage"));
 
-        menu.AddMenuOption("warns", _localizer["MenuOption.Warns"], (_, _) => { 
-            MenuWarns.OpenMain(caller, menu);
-        }, 
-        viewFlags:  AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_add") +
-                    AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_list") +
-                    AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_delete"));
-
         menu.AddMenuOption("gm", _localizer["MenuOption.GM"], (_, _) => {
             if (MenuGM.AddGroupBuffer.ContainsKey(caller.Admin()!))
             {

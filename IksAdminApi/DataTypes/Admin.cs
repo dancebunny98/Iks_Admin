@@ -60,7 +60,7 @@ public class Admin
         return Disabled == 1 || IsDisabledByWarns || IsDisabledByEnd;
     }}
     public bool IsDisabledByWarns {get {
-        return Warns.Count >= AdminUtils.CoreApi.Config.MaxWarns;
+        return Warns.Count(warn => !warn.IsTest) >= AdminUtils.CoreApi.Config.MaxWarns;
     }}
     public bool IsDisabledByEnd {get {
         return EndAt != null && EndAt < AdminUtils.CurrentTimestamp();
@@ -81,7 +81,8 @@ public class Admin
     public bool IsConsole { get => Id == 1;}
 
     public List<Warn> Warns {get {
-        return AdminUtils.CoreApi.Warns.Where(x => x.TargetId == Id).ToList();
+        return AdminUtils.CoreApi.Warns.Where(x => x.TargetId == Id ||
+            x.IsPlayerWarning && x.TargetSteamId == USteamId).ToList();
     }}
 
     // Limitations ===

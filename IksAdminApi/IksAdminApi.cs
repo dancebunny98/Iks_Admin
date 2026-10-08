@@ -136,6 +136,10 @@ public interface IIksAdminApi
     /// Используется MenuMain при построении !admin - модулям обычно не нужен напрямую.
     /// </summary>
     IReadOnlyList<MainMenuOption> MainMenuOptions { get; }
+    void RegisterChatMenuOption(string id, Func<string> title, Action<CCSPlayerController, IDynamicMenu> onExecute,
+        string viewFlags = "*");
+    void UnregisterChatMenuOption(string id);
+    IReadOnlyList<MainMenuOption> ChatMenuOptions { get; }
     // DATABASE/PUNISHMENTS FUNC ===
     /// <summary>
     /// return statuses: 0 - banned, 1 - already banned, 2 - stopped by limitations, -1 - other

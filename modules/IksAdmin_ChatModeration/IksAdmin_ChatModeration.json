@@ -7,7 +7,6 @@
   "IgnoreChatCommands": true,
   "IgnoreAdministrators": false,
   "ExemptSteamIds": [],
-  "ActiveWarnDays": 30,
   "HistoryLimit": 50,
   "BanSuggestionThreshold": 3,
   "SuggestedBanMinutes": 1440,

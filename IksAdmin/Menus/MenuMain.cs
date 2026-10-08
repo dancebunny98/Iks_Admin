@@ -41,7 +41,11 @@ public static class MenuMain
             (p, _) => {
                 OpenBlocksManageMenu(caller, menu);
             },
-            viewFlags: AdminUtils.GetAllPermissionGroupFlags("blocks_manage") + AdminUtils.GetAllPermissionGroupFlags("comms_manage")
+            viewFlags: AdminUtils.GetAllPermissionGroupFlags("blocks_manage") + AdminUtils.GetAllPermissionGroupFlags("comms_manage") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_add") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_list") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_delete") +
+                       string.Concat(_api.ChatMenuOptions.Select(option => option.ViewFlags))
         );
         // Пункты, добавленные сторонними модулями через Api.RegisterMainMenuOption
         // (например IksAdmin_VipGive) - показываются после встроенных, в порядке регистрации.
@@ -83,7 +87,11 @@ public static class MenuMain
             (p, _) => {
                 MenuCommsManage.OpenCommsMenu(caller, menu);
             },
-            viewFlags: AdminUtils.GetAllPermissionGroupFlags("comms_manage")
+            viewFlags: AdminUtils.GetAllPermissionGroupFlags("comms_manage") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_add") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_list") +
+                       AdminUtils.GetCurrentPermissionFlags("admins_manage.warn_delete") +
+                       string.Concat(_api.ChatMenuOptions.Select(option => option.ViewFlags))
         );
         menu.Open(caller);
     }

@@ -8,17 +8,20 @@ public static class DBWarns
 {
     private static string WarnSelect = @"
     select 
-    id as id,
-    admin_id as adminId,
-    target_id as targetId,
-    duration as duration,
-    reason as reason,
-    created_at as createdAt,
-    updated_at as updatedAt,
-    end_at as endAt,
-    deleted_at as deletedAt,
-    deleted_by as deletedBy
-    from iks_admins_warns
+    w.id as id,
+    w.admin_id as adminId,
+    w.issued_immunity as IssuedImmunity,
+    coalesce(w.target_id, 0) as targetId,
+    w.target_steam_id as TargetSteamId,
+    w.duration as duration,
+    w.reason as reason,
+    w.created_at as createdAt,
+    w.updated_at as updatedAt,
+    w.end_at as endAt,
+    w.deleted_at as deletedAt,
+    w.deleted_by as deletedBy,
+    (w.target_id is null) as IsPlayerWarning
+    from iks_admins_warns w
     ";
 
     public static async Task<List<Warn>> GetAllActive() {
@@ -30,9 +33,9 @@ public static class DBWarns
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
             where 
-            target_id is not null
-            and deleted_at is null
-            and (end_at > unix_timestamp() or end_at=0)
+            (w.target_id is not null or exists
+                (select 1 from iks_admins a where a.steam_id = cast(w.target_steam_id as char)))
+            and w.deleted_at is null
             ")).ToList();
             return warns;
         }
@@ -50,7 +53,8 @@ public static class DBWarns
 
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
-            where target_id is not null
+            where (w.target_id is not null or exists
+                (select 1 from iks_admins a where a.steam_id = cast(w.target_steam_id as char)))
             ")).ToList();
             return warns;
         }
@@ -68,12 +72,13 @@ public static class DBWarns
 
             int id = await conn.QuerySingleAsync<int>(@"
             insert into iks_admins_warns
-            (admin_id, target_id, duration, reason, created_at, end_at, updated_at)
+            (admin_id, target_id, issued_immunity, duration, reason, created_at, end_at, updated_at)
             values
-            (@adminId, @targetId, @duration, @reason, @createdAt, @endAt, @updatedAt);
+            (@adminId, @targetId, @issuedImmunity, @duration, @reason, @createdAt, @endAt, @updatedAt);
             select last_insert_id();
             ", new {
                 adminId = warn.AdminId,
+                issuedImmunity = warn.IssuedImmunity,
                 targetId = warn.TargetId,
                 duration = warn.Duration,
                 reason = warn.Reason,
@@ -98,6 +103,15 @@ public static class DBWarns
             await using var conn = new MySqlConnection(DB.ConnectionString);
             await DB.OpenConnectionWithRetryAsync(conn);
             warn.UpdatedAt = AdminUtils.CurrentTimestamp();
+            if (warn.IsPlayerWarning)
+            {
+                var changed = await conn.ExecuteAsync(@"
+                    update iks_admins_warns set deleted_at=@deletedAt, deleted_by=@deletedBy,
+                        updated_at=@updatedAt where id=@id and target_id is null and deleted_at is null",
+                    new { id = warn.Id, deletedAt = warn.DeletedAt, deletedBy = warn.DeletedBy,
+                        updatedAt = warn.UpdatedAt });
+                return new DBResult(warn.Id, changed == 1 ? 0 : 1);
+            }
             await conn.QueryAsync(@"
             update iks_admins_warns set
             admin_id = @adminId,
@@ -138,9 +152,9 @@ public static class DBWarns
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
             where 
-            target_id=@id 
-            and deleted_at is null
-            and (end_at > unix_timestamp() or end_at=0)
+            (w.target_id=@id or w.target_steam_id =
+                (select cast(steam_id as unsigned) from iks_admins where id=@id))
+            and w.deleted_at is null
             ", new {id})).ToList();
             return warns;
         }
@@ -159,10 +173,10 @@ public static class DBWarns
             var warns = (await conn.QueryAsync<Warn>($@"
             {WarnSelect}
             where 
-            admin_id=@id and
-            target_id is not null and
-            deleted_at is null
-            and (end_at > unix_timestamp() or end_at=0)
+            w.admin_id=@id and
+            (w.target_id is not null or exists
+                (select 1 from iks_admins a where a.steam_id = cast(w.target_steam_id as char))) and
+            w.deleted_at is null
             ", new {id})).ToList();
             return warns;
         }

@@ -83,18 +83,6 @@ public class Main : BasePlugin
                     AdminApi.RemoveCommFromPlayer(comm);
                 }
             }
-            foreach (var warn in AdminApi.Warns.ToArray())
-            {
-                if (warn.EndAt != 0 && warn.EndAt < AdminUtils.CurrentTimestamp()) { 
-                    var admin = warn.TargetAdmin;
-                    if (admin != null && admin.Controller != null) {
-                        admin.Controller.Print(
-                            Localizer["Message.WarnEnded"].AReplace(["id", "reason", "admin"], [warn.Id, warn.Reason, warn.Admin?.Name ?? "NOT FINDED"])
-                        );
-                    }
-                    AdminApi.Warns.Remove(warn);
-                }
-            }
         }, TimerFlags.REPEAT);
 
         // Периодическая проверка наказаний, добавленных напрямую в БД (в обход плагина).
@@ -244,7 +232,7 @@ public class Main : BasePlugin
                         await AdminApi.UpdateAdmin(AdminApi.ConsoleAdmin, admin, false);
                     });
                 }
-                if (admin.Warns.Count >= AdminApi.Config.MaxWarns)
+                if (admin.IsDisabledByWarns)
                 {
                     player.Print(Localizer["ActionError.DisabledByWarns"]);
                 }
@@ -406,6 +394,7 @@ public class Main : BasePlugin
         AdminApi.RegisterPermission("admins_manage.warn_add", "z");
         AdminApi.RegisterPermission("admins_manage.warn_delete", "z");
         AdminApi.RegisterPermission("admins_manage.warn_list", "z");
+        AdminApi.RegisterPermission("other.warn_self", "*");
         // Groups manage ===
         AdminApi.RegisterPermission("groups_manage.add", "z");
         AdminApi.RegisterPermission("groups_manage.delete", "z");
@@ -441,6 +430,7 @@ public class Main : BasePlugin
         AdminApi.RegisterPermission("blocks_manage.remove_console", "c"); // Снять наказание выданное консолью
         // Players manage ===
         AdminApi.RegisterPermission("players_manage.kick", "k");
+        AdminApi.RegisterPermission("players_manage.spec", "k");
         AdminApi.RegisterPermission("players_manage.kick_own_reason", "k");
         AdminApi.RegisterPermission("players_manage.changeteam", "k");
         AdminApi.RegisterPermission("players_manage.switchteam", "k");
@@ -535,18 +525,24 @@ public class Main : BasePlugin
             "am_warn",
             "Выдать варн",
             "admins_manage.warn_add",
-            "css_am_warn <SteamID> <time> <reason>",
+            "css_am_warn <SteamID> <reason>",
             CmdAdminManage.Warn,
-            minArgs: 3,
+            minArgs: 2,
             whoCanExecute: CommandUsage.CLIENT_AND_SERVER
         );
+        AdminApi.AddNewCommand("am_testwarn", "Issue a test warning to yourself",
+            "other.warn_self", "css_am_testwarn", CmdAdminManage.TestWarn,
+            minArgs: 0, whoCanExecute: CommandUsage.CLIENT_ONLY);
+        AdminApi.AddNewCommand("spec", "Move a player to spectators", "players_manage.spec",
+            "css_spec <player>", CmdPm.Spec, minArgs: 1,
+            whoCanExecute: CommandUsage.CLIENT_AND_SERVER);
         AdminApi.AddNewCommand(
             "am_warns",
             "Выводит все варны админа",
-            "admins_manage.warn_list",
-            "css_am_warns <Admin ID>",
+            "other.warn_self",
+            "css_am_warns [Admin ID]",
             CmdAdminManage.Warns,
-            minArgs: 1,
+            minArgs: 0,
             whoCanExecute: CommandUsage.CLIENT_AND_SERVER
         );
         AdminApi.AddNewCommand(
@@ -561,7 +557,7 @@ public class Main : BasePlugin
         AdminApi.AddNewCommand(
             "am_warn_remove",
             "Выводит все варны админа",
-            "admins_manage.warn_delete",
+            "other.warn_self",
             "css_am_warn_remove <Warn ID>",
             CmdAdminManage.WarnRemove,
             minArgs: 1,

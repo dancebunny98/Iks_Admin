@@ -204,9 +204,9 @@ public static class MsgAnnounces
     {
         AdminUtils.PrintToServer(_localizer["Announce.Warn"].Value
                 .Replace("{admin}", AdminUtils.Admin(warn.AdminId)!.CurrentName)
-                .Replace("{name}", AdminUtils.Admin(warn.TargetId)!.CurrentName)
+                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? "Unknown")
                 .Replace("{reason}", warn.Reason)
-                .Replace("{now}", AdminUtils.Admin(warn.TargetId)!.Warns.Count.ToString())
+                .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
                 .Replace("{max}", _api.Config.MaxWarns.ToString())
                 .Replace("{duration}", (AdminUtils.GetDurationString(warn.Duration)).ToString()), tag: _localizer["Tag"]
         );
@@ -215,10 +215,10 @@ public static class MsgAnnounces
     public static void WarnDelete(Warn warn)
     {
         AdminUtils.PrintToServer(_localizer["Announce.WarnDelete"].Value
-                .Replace("{admin}", AdminUtils.Admin(warn.AdminId)!.CurrentName)
-                .Replace("{name}", AdminUtils.Admin(warn.TargetId)!.CurrentName)
+                .Replace("{admin}", warn.DeletedByAdmin?.CurrentName ?? "Unknown")
+                .Replace("{name}", warn.TargetAdmin?.CurrentName ?? "Unknown")
                 .Replace("{reason}", warn.Reason)
-                .Replace("{now}", (AdminUtils.Admin(warn.TargetId)!.Warns.Count - 1).ToString())
+                .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
                 .Replace("{max}", _api.Config.MaxWarns.ToString())
                 .Replace("{id}", warn.Id.ToString()), tag: _localizer["Tag"]
         );

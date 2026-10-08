@@ -109,6 +109,7 @@ public static class DB
                     admin_id int not null,
                     target_id int default null,
                     target_steam_id bigint unsigned default null,
+                    issued_immunity int default null,
                     target_name varchar(128) default null,
                     source varchar(32) default null,
                     rule_id varchar(64) default null,
@@ -154,6 +155,15 @@ public static class DB
                     MODIFY name VARCHAR(255) NOT NULL,
                     MODIFY ip VARCHAR(32) NOT NULL,
                     MODIFY rcon VARCHAR(128) NULL;");
+
+            var warnColumns = (await conn.QueryAsync<string>(@"
+                select column_name from information_schema.columns
+                where table_schema = database() and table_name = 'iks_admins_warns'"))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!warnColumns.Contains("target_steam_id"))
+                await conn.ExecuteAsync("alter table iks_admins_warns add column target_steam_id bigint unsigned null");
+            if (!warnColumns.Contains("issued_immunity"))
+                await conn.ExecuteAsync("alter table iks_admins_warns add column issued_immunity int null");
 
         if (await conn.QuerySingleAsync<int>(@"select count(*) from iks_admins") == 0)
         {

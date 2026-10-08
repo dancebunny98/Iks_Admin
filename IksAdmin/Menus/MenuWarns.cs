@@ -21,34 +21,18 @@ public static class MenuWarns
         menu.AddMenuOption("add",  _localizer["MenuOption.Warns.Add"], (_, _) =>
         {
             MenuUtils.SelectItem<Admin?>(caller, "warn_add", "Name", 
-                _api.ServerAdmins.Values.Where(x => _api.CanDoActionWithPlayer(caller.GetSteamId(), x.SteamId)).ToList()!,
+                _api.AllAdmins.Where(x => caller.Admin() is { } issuer &&
+                    issuer.CurrentImmunity >= x.CurrentImmunity).ToList()!,
                 (a, m) =>
                 {
                     caller.Print(_localizer["Message.GL.ReasonSet"]);
                     _api.HookNextPlayerMessage(caller, reason =>
                     {
+                        if (a is null || caller.Admin() is not { } issuer ||
+                            !AdminUtils.CanIssueWarn(issuer, a, reason)) return;
                         var warn = new Warn(caller.Admin()!.Id, a!.Id, 0, reason);
-                        caller.Print(_localizer["Message.PrintOwnTime"]);
-                        Server.NextFrame(() => {
-                            _api.HookNextPlayerMessage(caller, time =>
-                            {
-                                if (int.TryParse(time, out var timeInt))
-                                {
-                                    warn.Duration = timeInt*60;
-                                    warn.SetEndAt();
-                                    Task.Run(async () =>
-                                    {
-                                        await _api.CreateWarn(warn);
-                                    });
-                                }
-                                else
-                                {
-                                    caller.Print(_localizer["Error.MustBeANumber"]);
-                                }
-                                m.Open(caller);
-                            });
-                        });
-                        
+                        Task.Run(async () => await _api.CreateWarn(warn));
+                        m.Open(caller);
                     });
                 },
                 backMenu: menu, nullOption: false
@@ -57,7 +41,7 @@ public static class MenuWarns
         menu.AddMenuOption("list",  _localizer["MenuOption.Warns.List"], (_, _) =>
         {
             MenuUtils.SelectItem<Admin?>(caller, "warn_list_admin", "Name", 
-                _api.ServerAdmins.Values!.Where(x => x.Warns.Count > 0).ToList()!,
+                _api.AllAdmins.Where(x => x.Warns.Count > 0).ToList()!,
                 (a, m) =>
                 {
                     SelectWarnMenu(caller, a!, m, backMenu);
@@ -87,14 +71,14 @@ public static class MenuWarns
             menu.AddMenuOption(warn.Id.ToString(), $"[{warn.Id}] {warn.Reason}", (_, _) => {
                 _api.RemoveNextPlayerMessageHook(caller);
                 caller.Print(MsgOther.SWarnTemplate(warn));
-                if (caller.HasPermissions("admins_manage.warn_delete"))
+                if (caller.Admin() is { } actor && AdminUtils.CanRemoveWarn(actor, warn))
                 {
                     caller.Print(_localizer["Message.Warns.DeleteWarn"]);
                     _api.HookNextPlayerMessage(caller, (s) => {
                         if (s == "delete")
                         {
                             Task.Run(async () => {
-                                await _api.DeleteWarn(admin, warn);
+                                await _api.DeleteWarn(actor, warn);
                             });
                             OpenMain(caller, mainBack);
                         }

@@ -12,7 +12,6 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public bool IgnoreChatCommands { get; set; } = true;
     public bool IgnoreAdministrators { get; set; } = false;
     public List<ulong> ExemptSteamIds { get; set; } = [];
-    public int ActiveWarnDays { get; set; } = 30;
     public int HistoryLimit { get; set; } = 50;
     public int BanSuggestionThreshold { get; set; } = 3;
     public int SuggestedBanMinutes { get; set; } = 1440;

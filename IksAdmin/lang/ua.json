@@ -107,6 +107,7 @@
     "MenuOption.PM" : "Управління гравцями",
     "Message.PM.Kick.SetReason" : "Введіть причину кика гравця {red}{name}{white}: {red}!причина",
     "MenuOption.PM.Kick" : "Кикнути",
+    "MenuOption.PM.Spec" : "Перевести в спостерігачі",
     "MenuOption.PM.Team" : "Змінити команду",
     "MenuOption.PM.Slay" : "Вбити",
     "MenuOption.PM.Respawn" : "Воскресити",
