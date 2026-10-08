@@ -10,7 +10,7 @@ Build `IksAdmin_ChatModeration.csproj` for .NET 10. Deploy `IksAdmin_ChatModerat
 
 | Permission | Default flag | Command or menu |
 | --- | --- | --- |
-| `chat_moderation.warn` | `g` | `css_chatwarn <player> <reason>`; issue a warning from the admin menu. |
+| `chat_moderation.warn` | `g` | `css_warn <player> <reason>` or `css_chatwarn <player> <reason>`; issue a warning from the admin menu. |
 | `chat_moderation.review` | `g` | `css_chatwarns <player>`; view warning history in the admin menu. |
 | None | Everyone | `css_warns` or `!warns`; list your own active warnings, including administrator warnings. |
 | `chat_moderation.revoke` | `z` | `css_chatunwarn <player> <warning_id>`. |
@@ -24,7 +24,7 @@ Warnings store a reason, message excerpt, timestamp, issuer, and source. Automat
 
 ## Rule settings
 
-Edit `IksAdmin_ChatModeration.json`, then reload the module. `Language` accepts `ru` or `en`, using the files in `lang/`. `Enabled`, `CheckPublicChat`, `CheckTeamChat`, `IgnoreChatCommands`, `IgnoreAdministrators`, and `ExemptSteamIds` define the overall scope. `HistoryLimit`, `BanSuggestionThreshold`, `SuggestedBanMinutes`, and `NotifyModeratorsAtThreshold` control warning review and ban offers. A suggested ban duration of `0` means permanent; a negative value hides the ban action. `MaxStoredMessageLength` caps message excerpts. `RegexTimeoutMilliseconds` bounds regex work per message.
+Edit `IksAdmin_ChatModeration.json`, then reload the module. Menu text follows the IksAdmin core language (`ru`, `en`, or `ua`); `Language` is used only with an older core that does not expose its locale. `Enabled`, `CheckPublicChat`, `CheckTeamChat`, `IgnoreChatCommands`, `IgnoreAdministrators`, and `ExemptSteamIds` define the overall scope. `HistoryLimit`, `BanSuggestionThreshold`, `SuggestedBanMinutes`, and `NotifyModeratorsAtThreshold` control warning review and ban offers. A suggested ban duration of `0` means permanent; a negative value hides the ban action. `MaxStoredMessageLength` caps message excerpts. `RegexTimeoutMilliseconds` bounds regex work per message.
 
 Each `Rules` entry has an `Id`, `Enabled`, `Reason`, `MatchType`, `Pattern`, optional `Patterns` and `Allowlist` arrays, optional `MinLength` and `Threshold`, public/team switches, `Action`, `BlockMessage`, `AddWarning`, `GagMinutes`, `MuteMinutes`, `BanMinutes`, and `CooldownSeconds`. `Reason` can be literal text or a key in `lang/*.json`; the bundled rules use translation keys. Supported match types are `Contains`, `Exact`, `StartsWith`, `EndsWith`, `Regex`, `Domain`, `Length`, `Duplicate`, `Repeat`, and `Caps`. `Caps` uses `Threshold` as the uppercase percentage; `Repeat` uses it as the number of consecutive equal characters; `Length` uses it as the minimum message length. `Pattern` and `Patterns` form a blocklist for text and domain rules; `Allowlist` excludes matching text spans or domains from that rule. List entries use the rule's `MatchType` and `CaseSensitive` setting. `Action` may be `Warn`, `Gag`, `Mute`, `Ban`, `Block`, or `Ignore`. `BlockMessage` independently controls whether the matched chat message is suppressed. `Gag` blocks text chat, while `Mute` blocks both text and voice chat. `Mute` and `Ban` replace automatic warnings even when `AddWarning` is true; other actions honor `AddWarning`. Durations are in minutes; `0` means permanent and a negative value disables the punishment.
 

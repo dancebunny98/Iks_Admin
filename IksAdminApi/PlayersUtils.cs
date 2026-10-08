@@ -60,7 +60,9 @@ public static class PlayersUtils
     }
     public static CCSPlayerController? GetControllerByName(string name, bool ignoreRegistry = false)
     {
-        return Utilities.GetPlayers().FirstOrDefault(x => x != null && x.IsValid && (ignoreRegistry ? x.PlayerName.ToLower().Contains(name) : x.PlayerName.Contains(name)));
+        var players = Utilities.GetPlayers().Where(x => x != null && x.IsValid);
+        return players.FirstOrDefault(x => x.PlayerName.Equals(name, StringComparison.OrdinalIgnoreCase))
+            ?? players.FirstOrDefault(x => x.PlayerName.Contains(name, StringComparison.OrdinalIgnoreCase));
     }
     public static CCSPlayerController? GetControllerByIp(string ip)
     {

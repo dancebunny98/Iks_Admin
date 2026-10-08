@@ -1,5 +1,6 @@
 {
     "Tag" : "[{red}АДМИН{white}]",
+    "Locale.Code" : "ru",
 
     "MenuTitle.AdminMain" : "Админ меню",
     "MenuTitle.HELP_SelectItem" : "Выберите:",

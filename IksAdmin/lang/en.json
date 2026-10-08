@@ -1,5 +1,6 @@
 {
     "Tag" : "[{red}ADMIN{white}]",
+    "Locale.Code" : "en",
 
     "MenuTitle.AdminMain" : "Admin Menu",
     "MenuTitle.HELP_SelectItem" : "Select:",
