@@ -181,6 +181,14 @@
     }
     return data;
   }
+  function migrateWarningMessages(main, warnings) {
+    warnings.Messages ||= {};
+    for (const key of EVENTS.filter(event => warningEvent(event.key)).map(event => event.key)) {
+      if (!Object.hasOwn(main.Messages || {}, key)) continue;
+      if (!Object.hasOwn(warnings.Messages, key)) warnings.Messages[key] = main.Messages[key];
+      delete main.Messages[key];
+    }
+  }
   const useMessage = () => {
     const store = messageStore();
     if (!Object.hasOwn(store, state.selected)) store[state.selected] = clone(currentMessage());
@@ -254,7 +262,7 @@
         <div class="two-col"><label>Изображение<input data-embed-key="image.url" value="${escapeHtml(embed.image?.url)}" placeholder="https://..."></label><label>Миниатюра<input data-embed-key="thumbnail.url" value="${escapeHtml(embed.thumbnail?.url)}" placeholder="https://..."></label></div>
         <label>Подпись<input data-embed-key="footer.text" value="${escapeHtml(embed.footer?.text)}" placeholder="Текст под embed"></label></div>
         <div class="field-list"><div class="field-header"><strong>Поля (${embed.fields?.length || 0})</strong><button class="button small" data-add-field type="button">Добавить поле</button></div>
-        ${(embed.fields || []).map((field, fieldIndex) => `<div class="field-row" data-field="${fieldIndex}"><div class="field-header"><span class="muted">Поле ${fieldIndex + 1}</span><button class="icon-action danger" data-remove-field title="Удалить поле" aria-label="Удалить поле" type="button">×</button></div><div class="two-col"><label>Название<input data-field-key="name" maxlength="256" value="${escapeHtml(field.name)}"></label><label>Значение<input data-field-key="value" maxlength="1024" value="${escapeHtml(field.value)}"></label></div><label class="check-line"><input data-field-key="inline" type="checkbox" ${field.inline ? "checked" : ""}> В одну строку</label></div>`).join("")}</div>
+        ${(embed.fields || []).map((field, fieldIndex) => `<div class="field-row" data-field="${fieldIndex}"><div class="field-header"><div class="reorder-label"><button class="drag-handle" data-drag-field draggable="true" title="Перетащить поле" aria-label="Перетащить поле ${fieldIndex + 1}" type="button">⠿</button><span class="muted">Поле ${fieldIndex + 1}</span></div><div class="inline-actions"><button class="icon-action" data-move-field="-1" title="Поднять поле" aria-label="Поднять поле ${fieldIndex + 1}" type="button" ${fieldIndex === 0 ? "disabled" : ""}>↑</button><button class="icon-action" data-move-field="1" title="Опустить поле" aria-label="Опустить поле ${fieldIndex + 1}" type="button" ${fieldIndex === embed.fields.length - 1 ? "disabled" : ""}>↓</button><button class="icon-action danger" data-remove-field title="Удалить поле" aria-label="Удалить поле ${fieldIndex + 1}" type="button">×</button></div></div><div class="two-col"><label>Название<input data-field-key="name" maxlength="256" value="${escapeHtml(field.name)}"></label><label>Значение<input data-field-key="value" maxlength="1024" value="${escapeHtml(field.value)}"></label></div><label class="check-line"><input data-field-key="inline" type="checkbox" ${field.inline ? "checked" : ""}> В одну строку</label></div>`).join("")}</div>
       </div>`).join("") : `<div class="empty-editor">Нет embeds. Текст сообщения можно отправлять отдельно.</div>`;
   }
   function allButtons() { return (currentMessage().components || []).flatMap(row => row?.components || []); }
@@ -266,6 +274,13 @@
     for (let index = 0; index < buttons.length; index += 5)
       message.components.push({ type: 1, components: buttons.slice(index, index + 5) });
   }
+  function moveItem(items, from, insertionIndex) {
+    if (from < 0 || from >= items.length || insertionIndex < 0 || insertionIndex > items.length) return false;
+    const to = insertionIndex > from ? insertionIndex - 1 : insertionIndex;
+    if (to === from) return false;
+    items.splice(to, 0, items.splice(from, 1)[0]);
+    return true;
+  }
   function renderButtonsEditor() {
     const buttons = allButtons();
     if (unsupportedComponents()) {
@@ -273,7 +288,7 @@
       return;
     }
     $("buttons-editor").innerHTML = buttons.length ? buttons.map((button, index) => `
-      <div class="button-row" data-button="${index}"><div class="button-header"><strong>Ссылка ${index + 1}</strong><div class="inline-actions"><button class="icon-action" data-move-button="-1" title="Поднять" aria-label="Поднять кнопку" type="button">↑</button><button class="icon-action" data-move-button="1" title="Опустить" aria-label="Опустить кнопку" type="button">↓</button><button class="icon-action danger" data-remove-button title="Удалить" aria-label="Удалить кнопку" type="button">×</button></div></div><div class="two-col"><label>Текст<input data-button-key="label" maxlength="80" value="${escapeHtml(button.label)}"></label><label>HTTPS-ссылка<input data-button-key="url" value="${escapeHtml(button.url)}" placeholder="https://..."></label></div></div>`).join("") : `<div class="empty-editor">Нет кнопок. Для webhook доступны HTTPS-ссылки.</div>`;
+      <div class="button-row" data-button="${index}"><div class="button-header"><div class="reorder-label"><button class="drag-handle" data-drag-button draggable="true" title="Перетащить кнопку" aria-label="Перетащить кнопку ${index + 1}" type="button">⠿</button><strong>Ссылка ${index + 1}</strong></div><div class="inline-actions"><button class="icon-action" data-move-button="-1" title="Поднять" aria-label="Поднять кнопку ${index + 1}" type="button" ${index === 0 ? "disabled" : ""}>↑</button><button class="icon-action" data-move-button="1" title="Опустить" aria-label="Опустить кнопку ${index + 1}" type="button" ${index === buttons.length - 1 ? "disabled" : ""}>↓</button><button class="icon-action danger" data-remove-button title="Удалить" aria-label="Удалить кнопку ${index + 1}" type="button">×</button></div></div><div class="two-col"><label>Текст<input data-button-key="label" maxlength="80" value="${escapeHtml(button.label)}"></label><label>HTTPS-ссылка<input data-button-key="url" value="${escapeHtml(button.url)}" placeholder="https://..."></label></div></div>`).join("") : `<div class="empty-editor">Нет кнопок. Для webhook доступны HTTPS-ссылки.</div>`;
   }
   function renderVariables() {
     const search = $("variable-search").value.trim().toLowerCase();
@@ -366,15 +381,28 @@
     if ((message.username || "").length > 80) errors.push("Имя webhook длиннее 80 символов.");
     if ((message.embeds || []).length > 10) errors.push("Discord допускает не более 10 embeds.");
     let embedLength = 0;
-    for (const embed of message.embeds || []) {
+    for (const [embedIndex, embed] of (message.embeds || []).entries()) {
       const title = expand(embed.title, values), description = expand(embed.description, values);
       const footer = expand(embed.footer?.text, values), author = expand(embed.author?.name, values);
       if (title.length > 256 || description.length > 4096 || footer.length > 2048 || author.length > 256) errors.push("Превышен лимит заголовка, описания, автора или подписи embed.");
       embedLength += title.length + description.length + footer.length + author.length;
       if ((embed.fields || []).length > 25) errors.push("В одном embed допускается не более 25 полей.");
-      for (const field of embed.fields || []) {
+      for (const [fieldIndex, field] of (embed.fields || []).entries()) {
         const name = expand(field.name, values), value = expand(field.value, values);
-        if (name.length < 1 || name.length > 256 || value.length < 1 || value.length > 1024) errors.push("Поле embed должно иметь название (1–256) и значение (1–1024). ");
+        const where = `Embed ${embedIndex + 1}, поле ${fieldIndex + 1}${name ? ` «${name.slice(0, 40)}»` : ""}`;
+        if (!name.trim()) errors.push(`${where}: название пустое. Укажите название поля.`);
+        else if (name.length > 256) errors.push(`${where}: название длиннее 256 символов.`);
+        if (!value.trim()) {
+          const empty = [...String(field.value ?? "").matchAll(placeholderPattern)]
+            .map(match => match[0]).filter(token => {
+              const key = token.slice(1, -1).toLowerCase();
+              const canonical = ALIASES[key] || key;
+              return Object.hasOwn(values, canonical) && !String(values[canonical]).trim();
+            });
+          errors.push(empty.length
+            ? `${where}: ${[...new Set(empty)].join(", ")} пуст для события «${currentEvent().title}». Уберите это поле или добавьте постоянный текст.`
+            : `${where}: значение пустое. Укажите текст или уберите поле.`);
+        } else if (value.length > 1024) errors.push(`${where}: значение длиннее 1024 символов.`);
         embedLength += name.length + value.length;
       }
     }
@@ -527,6 +555,55 @@
     markChanged(); renderHeading(); renderPreview();
   }
   async function readJson(file) { return JSON.parse(await file.text()); }
+  function attachReorder(container, kind) {
+    const selector = kind === "field" ? "[data-field]" : "[data-button]";
+    const handleSelector = kind === "field" ? "[data-drag-field]" : "[data-drag-button]";
+    let dragged = null;
+    const clearMarkers = () => container.querySelectorAll(".drag-source,.drop-before,.drop-after")
+      .forEach(row => row.classList.remove("drag-source", "drop-before", "drop-after"));
+    container.addEventListener("dragstart", event => {
+      const handle = event.target.closest(handleSelector);
+      if (!handle || (kind === "button" && unsupportedComponents())) return;
+      const row = handle.closest(selector);
+      dragged = { index: Number(row.dataset[kind]), embed: kind === "field" ? Number(row.closest("[data-embed]").dataset.embed) : null, row };
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", kind);
+      row.classList.add("drag-source");
+    });
+    container.addEventListener("dragover", event => {
+      if (!dragged) return;
+      const row = event.target.closest(selector);
+      if (!row || (kind === "field" && Number(row.closest("[data-embed]").dataset.embed) !== dragged.embed)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      clearMarkers();
+      dragged.row.classList.add("drag-source");
+      row.classList.add(event.clientY < row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 ? "drop-before" : "drop-after");
+    });
+    container.addEventListener("drop", event => {
+      if (!dragged) return;
+      const row = event.target.closest(selector);
+      if (!row || (kind === "field" && Number(row.closest("[data-embed]").dataset.embed) !== dragged.embed)) return;
+      event.preventDefault();
+      const after = event.clientY >= row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+      const target = Number(row.dataset[kind]) + Number(after);
+      if (kind === "field") {
+        const fields = clone(currentMessage().embeds[dragged.embed].fields);
+        if (moveItem(fields, dragged.index, target)) {
+          useMessage().embeds[dragged.embed].fields = fields;
+          renderEmbedsEditor(); renderPreview(); renderHeading();
+        }
+      } else {
+        const buttons = clone(allButtons());
+        if (moveItem(buttons, dragged.index, target)) {
+          setButtons(buttons); renderButtonsEditor(); renderPreview(); renderHeading();
+        }
+      }
+      dragged = null;
+      clearMarkers();
+    });
+    container.addEventListener("dragend", () => { dragged = null; clearMarkers(); });
+  }
   function attachHandlers() {
     $("event-list").addEventListener("click", event => { const button = event.target.closest("[data-event]"); if (button) selectEvent(button.dataset.event); });
     for (const tab of ["visual", "json", "variables"]) $(`tab-${tab}`).addEventListener("click", () => setTab(tab));
@@ -553,25 +630,33 @@
     });
     $("visual-view").addEventListener("change", event => { if (event.target.type === "checkbox") event.target.dispatchEvent(new Event("input", { bubbles: true })); });
     $("embeds-editor").addEventListener("click", event => {
-      const button = event.target.closest("button"); if (!button) return;
+      const button = event.target.closest("button"); if (!button || button.hasAttribute("data-drag-field")) return;
       const embedIndex = Number(button.closest("[data-embed]").dataset.embed), message = useMessage(), embeds = message.embeds;
       if (button.hasAttribute("data-remove-embed")) embeds.splice(embedIndex, 1);
       else if (button.hasAttribute("data-move-embed")) { const other = embedIndex + Number(button.dataset.moveEmbed); if (other < 0 || other >= embeds.length) return; [embeds[embedIndex], embeds[other]] = [embeds[other], embeds[embedIndex]]; }
       else if (button.hasAttribute("data-add-field")) { (embeds[embedIndex].fields ||= []).push({ name: "Название", value: "Значение", inline: false }); }
       else if (button.hasAttribute("data-remove-field")) embeds[embedIndex].fields.splice(Number(button.closest("[data-field]").dataset.field), 1);
+      else if (button.hasAttribute("data-move-field")) {
+        const index = Number(button.closest("[data-field]").dataset.field);
+        if (!moveItem(embeds[embedIndex].fields, index, index + Number(button.dataset.moveField) + (Number(button.dataset.moveField) > 0 ? 1 : 0))) return;
+      }
       else return;
       renderEmbedsEditor(); renderPreview(); renderHeading();
     });
     $("buttons-editor").addEventListener("click", event => {
-      const button = event.target.closest("button"); if (!button || unsupportedComponents()) return;
+      const button = event.target.closest("button"); if (!button || button.hasAttribute("data-drag-button") || unsupportedComponents()) return;
       const index = Number(button.closest("[data-button]").dataset.button), buttons = clone(allButtons());
       if (button.hasAttribute("data-remove-button")) buttons.splice(index, 1);
-      else if (button.hasAttribute("data-move-button")) { const other = index + Number(button.dataset.moveButton); if (other < 0 || other >= buttons.length) return; [buttons[index], buttons[other]] = [buttons[other], buttons[index]]; }
+      else if (button.hasAttribute("data-move-button")) {
+        if (!moveItem(buttons, index, index + Number(button.dataset.moveButton) + (Number(button.dataset.moveButton) > 0 ? 1 : 0))) return;
+      }
       else return;
       setButtons(buttons); renderButtonsEditor(); renderPreview(); renderHeading();
     });
     $("add-embed").addEventListener("click", () => { const message = useMessage(); if ((message.embeds ||= []).length >= 10) return toast("Лимит: 10 embeds"); message.embeds.push({ title: "Новый embed", description: "", color: 5814783, fields: [] }); renderEmbedsEditor(); renderPreview(); renderHeading(); });
     $("add-button").addEventListener("click", () => { if (unsupportedComponents()) return toast("Сначала исправьте компоненты в JSON"); const buttons = clone(allButtons()); if (buttons.length >= 25) return toast("Лимит: 25 кнопок"); buttons.push({ type: 2, style: 5, label: "Ссылка", url: "https://example.com" }); setButtons(buttons); renderButtonsEditor(); renderPreview(); renderHeading(); });
+    attachReorder($("embeds-editor"), "field");
+    attachReorder($("buttons-editor"), "button");
     $("variable-search").addEventListener("input", renderVariables);
     $("variable-list").addEventListener("click", async event => {
       const button = event.target.closest("[data-variable]"); if (!button) return;
@@ -590,6 +675,7 @@
     $("clear-message").addEventListener("click", () => { if (!confirm("Удалить свой шаблон этого события? Плагин использует общий шаблон варна или стандартный embed.")) return; delete messageStore()[state.selected]; if (warningEvent(state.selected)) delete state.main.Messages[state.selected]; delete state.drafts[state.selected]; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); });
     $("copy-message").addEventListener("click", () => { if (savePendingRaw()) copyText(JSON.stringify(currentMessage(), null, 2)); });
     $("download-message").addEventListener("click", () => { if (savePendingRaw()) download(`${state.selected}.json`, currentMessage()); });
+    $("import-project").addEventListener("click", () => $("project-file").click());
     $("import-configs").addEventListener("click", () => $("import-dialog").showModal());
     $("open-settings").addEventListener("click", () => { renderSettings(); $("settings-dialog").showModal(); });
     $("export-configs").addEventListener("click", () => $("export-dialog").showModal());
@@ -607,7 +693,7 @@
     $("settings-dialog").addEventListener("click", event => { if (!event.target.hasAttribute("data-reveal")) return; const input = event.target.parentElement.querySelector("input"); input.type = input.type === "password" ? "text" : "password"; event.target.textContent = input.type === "password" ? "Показать" : "Скрыть"; });
     $("main-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = checkMainConfig(await readJson(event.target.files[0])); state.main = data; state.main.Messages ||= {}; state.main.Webhooks ||= {}; state.drafts = {}; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); toast("Основной конфиг загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
     $("warnings-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { state.warnings = checkWarningsConfig(await readJson(event.target.files[0])); markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); toast("Конфиг варнов загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
-    $("project-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = await readJson(event.target.files[0]); if (data.format !== "iksadmin-discord-studio-v1") throw new Error("Неверный формат проекта"); checkMainConfig(data.main); checkWarningsConfig(data.warnings); state.main = data.main; state.main.Messages ||= {}; state.main.Webhooks ||= {}; state.warnings = data.warnings; state.samples = { ...DEFAULT_SAMPLES, ...(plainObject(data.samples) ? data.samples : {}) }; state.drafts = {}; $("raw-json").dataset.dirty = "false"; renderAll(); if (state.tab === "json") refreshRaw(); toast("Проект загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
+    $("project-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = await readJson(event.target.files[0]); if (data.format !== "iksadmin-discord-studio-v1") throw new Error("Неверный формат проекта"); checkMainConfig(data.main); checkWarningsConfig(data.warnings); state.main = data.main; state.main.Messages ||= {}; state.main.Webhooks ||= {}; state.warnings = data.warnings; migrateWarningMessages(state.main, state.warnings); state.samples = { ...DEFAULT_SAMPLES, ...(plainObject(data.samples) ? data.samples : {}) }; state.drafts = {}; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); toast("Проект загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
     $("preview-data-button").addEventListener("click", () => { renderSamples(); $("sample-dialog").showModal(); });
     $("sample-fields").addEventListener("input", event => { if (!event.target.dataset.sample) return; state.samples[event.target.dataset.sample] = event.target.value; renderPreview(); renderVariables(); });
     $("reset-samples").addEventListener("click", () => { state.samples = { ...DEFAULT_SAMPLES }; renderSamples(); renderPreview(); renderVariables(); });

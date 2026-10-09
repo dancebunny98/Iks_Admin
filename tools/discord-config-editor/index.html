@@ -13,8 +13,9 @@
       <div class="brand"><span class="brand-mark">I</span><div><strong>IksAdmin</strong><span>Discord Studio</span></div></div>
       <div class="top-actions">
         <span id="save-state" class="save-state" role="status">Готово</span>
+        <button id="import-project" class="button subtle" type="button">Загрузить проект</button>
         <button id="import-configs" class="button subtle" type="button">Загрузить конфиги</button>
-        <button id="export-project" class="button subtle" type="button">Проект</button>
+        <button id="export-project" class="button subtle" type="button">Скачать проект</button>
         <button id="export-configs" class="button primary" type="button">Скачать конфиги</button>
       </div>
     </header>
@@ -53,13 +54,14 @@
 
   <dialog id="settings-dialog" class="modal"><div class="modal-head"><h2>Настройки отправки</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Каждый тип события отправляется в свой webhook. Адреса останутся только в загруженных или скачанных файлах.</p><div id="webhook-settings"></div><div class="settings-divider"></div><div id="warning-settings"></div></div><div class="modal-foot"><button class="button primary" data-close-dialog type="button">Готово</button></div></dialog>
 
-  <dialog id="import-dialog" class="modal"><div class="modal-head"><h2>Загрузить конфиги</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Загруженные файлы обрабатываются в браузере. Прочие параметры основного конфига сохранятся при экспорте.</p><label class="file-label">IksAdmin_DiscordPunishments.json<input id="main-file" type="file" accept=".json,application/json"></label><label class="file-label">warnings.json<input id="warnings-file" type="file" accept=".json,application/json"></label><label class="file-label">Проект редактора<input id="project-file" type="file" accept=".json,application/json"></label></div><div class="modal-foot"><button class="button subtle" data-close-dialog type="button">Закрыть</button></div></dialog>
+  <dialog id="import-dialog" class="modal"><div class="modal-head"><h2>Загрузить конфиги</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Загруженные файлы обрабатываются в браузере. Прочие параметры основного конфига сохранятся при экспорте.</p><label class="file-label">IksAdmin_DiscordPunishments.json<input id="main-file" type="file" accept=".json,application/json"></label><label class="file-label">warnings.json<input id="warnings-file" type="file" accept=".json,application/json"></label></div><div class="modal-foot"><button class="button subtle" data-close-dialog type="button">Закрыть</button></div></dialog>
 
   <dialog id="export-dialog" class="modal"><div class="modal-head"><h2>Скачать конфиги</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Скачайте оба файла в каталог <code>addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/</code>. Webhook URL сохраняются в файлах, поэтому храните их приватно.</p><div class="stack"><button id="download-main-config" class="button primary" type="button">IksAdmin_DiscordPunishments.json</button><button id="download-warnings-config" class="button subtle" type="button">warnings.json</button></div></div><div class="modal-foot"><button class="button subtle" data-close-dialog type="button">Закрыть</button></div></dialog>
 
   <dialog id="sample-dialog" class="modal"><div class="modal-head"><h2>Тестовые данные</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><div id="sample-fields" class="sample-grid"></div></div><div class="modal-foot"><button id="reset-samples" class="button subtle" type="button">Стандартные значения</button><button class="button primary" data-close-dialog type="button">Готово</button></div></dialog>
 
   <div id="toast" class="toast hidden" role="status"></div>
+  <input id="project-file" type="file" accept=".json,application/json" hidden>
   <input id="message-file" type="file" accept=".json,application/json" hidden>
 </body>
 </html>
