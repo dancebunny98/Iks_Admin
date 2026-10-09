@@ -13,17 +13,38 @@
   "IncludeOriginalIssuer": true,
   "IncludeRemovedAt": true,
   "IssuedTemplate": {
-    "Title": "Варн выдан #{warningid}",
-    "Description": "**{player}** получил варн от **{admin}**.",
-    "Emoji": "",
-    "Color": 15105570
+    "username": "IksAdmin Warns",
+    "embeds": [
+      {
+        "title": "Варн #{warningid}",
+        "color": 15105570,
+        "fields": [
+          { "name": "Игрок", "value": "{player}", "inline": true },
+          { "name": "Модератор", "value": "{admin}", "inline": true },
+          { "name": "Причина", "value": "{reason}", "inline": false },
+          { "name": "Дата выдачи", "value": "{issuedat}", "inline": false },
+          { "name": "Сервер", "value": "{servername}", "inline": true }
+        ]
+      }
+    ]
   },
   "RemovedTemplate": {
-    "Title": "Варн снят #{warningid}",
-    "Description": "**{admin}** снял варн с **{player}**.",
-    "Emoji": "",
-    "Color": 5763719
+    "username": "IksAdmin Warns",
+    "embeds": [
+      {
+        "title": "Варн #{warningid} снят",
+        "color": 5763719,
+        "fields": [
+          { "name": "Игрок", "value": "{player}", "inline": true },
+          { "name": "Снял", "value": "{admin}", "inline": true },
+          { "name": "Причина", "value": "{reason}", "inline": false },
+          { "name": "Дата снятия", "value": "{removedat}", "inline": false },
+          { "name": "Сервер", "value": "{servername}", "inline": false }
+        ]
+      }
+    ]
   },
+  "Messages": {},
   "Fields": {
     "Player": true,
     "Administrator": true,

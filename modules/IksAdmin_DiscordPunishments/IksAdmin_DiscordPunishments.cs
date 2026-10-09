@@ -115,18 +115,17 @@ public sealed class WarningLogConfig
     public bool IncludeMessage { get; set; } = true;
     public bool IncludeOriginalIssuer { get; set; } = true;
     public bool IncludeRemovedAt { get; set; } = true;
-    public TemplateConfig IssuedTemplate { get; set; } = new()
+    public JsonElement IssuedTemplate { get; set; } = JsonSerializer.SerializeToElement(new
     {
-        Title = "Варн выдан #{warningid}",
-        Description = "**{player}** получил варн от **{admin}**.",
-        Color = 15105570
-    };
-    public TemplateConfig RemovedTemplate { get; set; } = new()
+        username = "IksAdmin Warns",
+        embeds = new[] { new { title = "Варн выдан #{warningid}", description = "**{player}** получил варн от **{admin}**. Причина: {reason}", color = 15105570 } }
+    });
+    public JsonElement RemovedTemplate { get; set; } = JsonSerializer.SerializeToElement(new
     {
-        Title = "Варн снят #{warningid}",
-        Description = "**{admin}** снял варн с **{player}**.",
-        Color = 5763719
-    };
+        username = "IksAdmin Warns",
+        embeds = new[] { new { title = "Варн снят #{warningid}", description = "**{admin}** снял варн с **{player}**.", color = 5763719 } }
+    });
+    public Dictionary<string, JsonElement> Messages { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public FieldConfig Fields { get; set; } = new()
     {
         Duration = false, ExpiresAt = false, Ip = false,
@@ -172,6 +171,12 @@ public sealed class PunishmentRecord
     public int EndAt { get; set; }
     public int? RemovedAt { get; set; }
     public string RemoveReason { get; set; } = "";
+    public long PunishmentId { get; set; }
+    public string PunishmentKind { get; set; } = "";
+    public int AdminId { get; set; }
+    public int? TargetAdminId { get; set; }
+    public int? PunishmentServerId { get; set; }
+    public sbyte? BanType { get; set; }
     public long WarningId { get; set; }
     public string Source { get; set; } = "";
     public string Message { get; set; } = "";
@@ -251,9 +256,12 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private HookResult OnBanPost(PlayerBan ban, ref bool announce)
     {
+        if (ban.Id <= 0) return HookResult.Continue;
         var record = new PunishmentRecord
         {
-            EventType = "ban", Player = ban.NameString, SteamId = ban.SteamId ?? "", Ip = ban.IpString,
+            EventType = "ban", PunishmentId = ban.Id, PunishmentKind = "ban",
+            AdminId = ban.AdminId, PunishmentServerId = ban.ServerId, BanType = ban.BanType,
+            Player = ban.NameString, SteamId = ban.SteamId ?? "", Ip = ban.Ip ?? "",
             Administrator = ban.Admin?.CurrentName ?? "CONSOLE", AdministratorSteamId = ban.Admin?.SteamId ?? "CONSOLE",
             Reason = ban.Reason, Duration = ban.Duration, CreatedAt = ban.CreatedAt, EndAt = ban.EndAt
         };
@@ -263,10 +271,13 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private HookResult OnCommPost(PlayerComm comm, ref bool announce)
     {
+        if (comm.Id <= 0) return HookResult.Continue;
         var type = comm.MuteType switch { 0 => "mute", 1 => "gag", _ => "silence" };
         var record = new PunishmentRecord
         {
-            EventType = type, Player = comm.Name ?? "[NOT SET]", SteamId = comm.SteamId, Ip = comm.Ip ?? "",
+            EventType = type, PunishmentId = comm.Id, PunishmentKind = type,
+            AdminId = comm.AdminId, PunishmentServerId = comm.ServerId,
+            Player = comm.Name ?? "[NOT SET]", SteamId = comm.SteamId, Ip = comm.Ip ?? "",
             Administrator = comm.Admin?.CurrentName ?? "CONSOLE", AdministratorSteamId = comm.Admin?.SteamId ?? "CONSOLE",
             Reason = comm.Reason, Duration = comm.Duration, CreatedAt = comm.CreatedAt, EndAt = comm.EndAt
         };
@@ -278,7 +289,9 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         var record = new PunishmentRecord
         {
-            EventType = "unban", Player = ban.NameString, SteamId = ban.SteamId ?? "", Ip = ban.IpString,
+            EventType = "unban", PunishmentId = ban.Id, PunishmentKind = "ban",
+            AdminId = admin.Id, PunishmentServerId = ban.ServerId, BanType = ban.BanType,
+            Player = ban.NameString, SteamId = ban.SteamId ?? "", Ip = ban.Ip ?? "",
             Administrator = admin.CurrentName, AdministratorSteamId = admin.SteamId, Reason = ban.UnbanReason ?? "",
             Duration = ban.Duration, CreatedAt = ban.CreatedAt, EndAt = ban.EndAt, RemovedAt = AdminUtils.CurrentTimestamp(), RemoveReason = ban.UnbanReason ?? ""
         };
@@ -287,9 +300,12 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private void OnUncomm(Admin admin, PlayerComm comm)
     {
+        var type = comm.MuteType switch { 0 => "mute", 1 => "gag", _ => "silence" };
         var record = new PunishmentRecord
         {
-            EventType = "uncomm", Player = comm.Name ?? "[NOT SET]", SteamId = comm.SteamId,
+            EventType = "uncomm", PunishmentId = comm.Id, PunishmentKind = type,
+            AdminId = admin.Id, PunishmentServerId = comm.ServerId,
+            Player = comm.Name ?? "[NOT SET]", SteamId = comm.SteamId, Ip = comm.Ip ?? "",
             Administrator = admin.CurrentName, AdministratorSteamId = admin.SteamId, Reason = comm.UnbanReason ?? "",
             Duration = comm.Duration, CreatedAt = comm.CreatedAt, EndAt = comm.EndAt, RemovedAt = AdminUtils.CurrentTimestamp(), RemoveReason = comm.UnbanReason ?? ""
         };
@@ -300,7 +316,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     {
         var record = new PunishmentRecord
         {
-            EventType = "kick", Player = player.PlayerName, Administrator = admin.CurrentName,
+            EventType = "kick", PunishmentKind = "kick", AdminId = admin.Id,
+            Player = player.PlayerName, Administrator = admin.CurrentName,
             AdministratorSteamId = admin.SteamId, Reason = reason,
             CreatedAt = AdminUtils.CurrentTimestamp()
         };
@@ -341,7 +358,9 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         RecordAndSend(new PunishmentRecord
         {
             EventType = removed ? "warn_removed" : "warn_issued",
-            WarningId = warn.Id,
+            WarningId = warn.Id, PunishmentId = warn.Id, PunishmentKind = "warn",
+            AdminId = (removed ? actor : issuer)?.Id ?? 0,
+            TargetAdminId = warn.TargetId > 0 ? warn.TargetId : null,
             Player = warn.TargetAdmin?.CurrentName ?? warn.TargetSteamId?.ToString() ?? warn.TargetId.ToString(),
             SteamId = warn.TargetAdmin?.SteamId ?? warn.TargetSteamId?.ToString() ?? "",
             Administrator = (removed ? actor : issuer)?.CurrentName ?? "CONSOLE",
@@ -367,7 +386,8 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         RecordAndSend(new PunishmentRecord
         {
             EventType = removed ? "warn_removed" : "warn_issued",
-            WarningId = data.Get<long>("id"),
+            WarningId = data.Get<long>("id"), PunishmentId = data.Get<long>("id"), PunishmentKind = "warn",
+            AdminId = actor?.Id ?? 0,
             Player = data.Get<string>("player_name"),
             SteamId = data.Get<ulong>("steam_id").ToString(),
             Administrator = actor?.CurrentName ?? "CONSOLE",
@@ -406,7 +426,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private static string DispatchKey(PunishmentRecord record) =>
         string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt,
-            record.RemovedAt, record.Reason, record.WarningId, record.Source);
+            record.RemovedAt, record.Reason, record.WarningId, record.PunishmentId, record.Source);
 
     private static int EventTimestamp(PunishmentRecord record) => record.RemovedAt ?? record.CreatedAt;
 
@@ -433,7 +453,10 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         {
             _ = SendAsync(new PunishmentRecord
             {
-                EventType = "expired", Player = record.Player, SteamId = record.SteamId, Ip = record.Ip,
+                EventType = "expired", PunishmentId = record.PunishmentId, PunishmentKind = record.PunishmentKind,
+                AdminId = record.AdminId, TargetAdminId = record.TargetAdminId,
+                PunishmentServerId = record.PunishmentServerId, BanType = record.BanType,
+                Player = record.Player, SteamId = record.SteamId, Ip = record.Ip,
                 Administrator = record.Administrator, AdministratorSteamId = record.AdministratorSteamId,
                 Reason = record.Reason, Duration = record.Duration, CreatedAt = record.CreatedAt, EndAt = record.EndAt
             });
@@ -554,31 +577,53 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
 
     private object BuildMessage(PunishmentRecord record)
     {
-        var key = record.EventType is "warn_issued" or "warn_removed"
+        var warningEvent = record.EventType is "warn_issued" or "warn_removed";
+        var key = warningEvent
             ? record.IsModeratorWarning ? "moderator_" + record.EventType : "player_" + record.EventType
             : record.EventType;
-        return BuildConfiguredMessage(key, Values(record),
+        var values = Values(record);
+        if (warningEvent)
+        {
+            if (_warningConfig.Messages.TryGetValue(key, out var specific) &&
+                TryBuildConfiguredMessage(specific, values, key, out var warningMessage)) return warningMessage;
+            var shared = record.EventType == "warn_issued" ? _warningConfig.IssuedTemplate : _warningConfig.RemovedTemplate;
+            if (IsDiscordMessage(shared) && TryBuildConfiguredMessage(shared, values, record.EventType, out var sharedMessage))
+                return sharedMessage;
+        }
+        return BuildConfiguredMessage(key, values,
             () => new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) }, allowed_mentions = new { parse = Array.Empty<string>() } });
     }
 
     private object BuildConfiguredMessage(string key, Dictionary<string, string> values, Func<object> fallback)
     {
-        if (Config.Messages.TryGetValue(key, out var template) && template.ValueKind == JsonValueKind.Object)
-        {
-            try
-            {
-                var message = JsonNode.Parse(template.GetRawText())!.AsObject();
-                ExpandNode(message, values);
-                ValidateMessage(message);
-                message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
-                return message;
-            }
-            catch (Exception exception)
-            {
-                Logger.LogError(exception, "[{Module}] invalid Discord message template {Template}", ModuleName, key);
-            }
-        }
+        if (Config.Messages.TryGetValue(key, out var template) &&
+            TryBuildConfiguredMessage(template, values, key, out var message)) return message;
         return fallback();
+    }
+
+    private static bool IsDiscordMessage(JsonElement template) =>
+        template.ValueKind == JsonValueKind.Object &&
+        (template.TryGetProperty("embeds", out _) || template.TryGetProperty("content", out _) ||
+         template.TryGetProperty("components", out _));
+
+    private bool TryBuildConfiguredMessage(JsonElement template, Dictionary<string, string> values, string key, out object payload)
+    {
+        payload = null!;
+        if (template.ValueKind != JsonValueKind.Object) return false;
+        try
+        {
+            var message = JsonNode.Parse(template.GetRawText())!.AsObject();
+            ExpandNode(message, values);
+            ValidateMessage(message);
+            message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
+            payload = message;
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "[{Module}] invalid Discord message template {Template}", ModuleName, key);
+            return false;
+        }
     }
 
     private void ExpandNode(JsonNode node, Dictionary<string, string> values)
@@ -668,11 +713,24 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         }
     }
 
+    private static TemplateConfig LegacyWarningTemplate(JsonElement source, bool issued)
+    {
+        var fallback = new TemplateConfig
+        {
+            Title = issued ? "Варн выдан #{warningid}" : "Варн снят #{warningid}",
+            Description = issued ? "**{player}** получил варн от **{admin}**." : "**{admin}** снял варн с **{player}**.",
+            Color = issued ? 15105570 : 5763719
+        };
+        if (source.ValueKind != JsonValueKind.Object || IsDiscordMessage(source)) return fallback;
+        try { return JsonSerializer.Deserialize<TemplateConfig>(source.GetRawText(), JsonOptions()) ?? fallback; }
+        catch { return fallback; }
+    }
+
     private DiscordEmbed BuildEmbed(PunishmentRecord record)
     {
         var warningEvent = record.EventType is "warn_issued" or "warn_removed";
         var template = warningEvent
-            ? record.EventType == "warn_issued" ? _warningConfig.IssuedTemplate : _warningConfig.RemovedTemplate
+            ? LegacyWarningTemplate(record.EventType == "warn_issued" ? _warningConfig.IssuedTemplate : _warningConfig.RemovedTemplate, record.EventType == "warn_issued")
             : Config.Templates.TryGetValue(record.EventType, out var found) ? found : new TemplateConfig();
         var fields = _warningConfig.Fields;
         if (!warningEvent)
@@ -686,6 +744,15 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         };
         if (fields.Player) embed.Fields.Add(Field("Игрок", $"{Sanitize(record.Player)}\nSteamID64: `{Sanitize(record.SteamId)}`\nhttps://steamcommunity.com/profiles/{Sanitize(record.SteamId)}"));
         if (fields.Administrator) embed.Fields.Add(Field("Администратор", $"{Sanitize(record.Administrator)}\nSteamID64: `{Sanitize(record.AdministratorSteamId)}`"));
+        if (!warningEvent && record.PunishmentId > 0)
+        {
+            var label = record.PunishmentKind switch
+            {
+                "ban" => "ID бана", "mute" => "ID мута", "gag" => "ID гага", "silence" => "ID сайленса",
+                _ => "ID наказания"
+            };
+            embed.Fields.Add(Field(label, record.PunishmentId.ToString(CultureInfo.InvariantCulture)));
+        }
         if (fields.Reason) embed.Fields.Add(Field("Причина", record.Reason));
         if (fields.Duration) embed.Fields.Add(Field("Длительность", FormatDuration(record.Duration)));
         if (fields.IssuedAt) embed.Fields.Add(Field("Дата выдачи", FormatDate(record.CreatedAt)));
@@ -721,6 +788,9 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private Dictionary<string, string> Values(PunishmentRecord r)
     {
         var server = Api.ThisServer;
+        var kind = string.IsNullOrEmpty(r.PunishmentKind) ? r.EventType : r.PunishmentKind;
+        var punishmentId = r.PunishmentId > 0 ? r.PunishmentId.ToString(CultureInfo.InvariantCulture) : "";
+        var commId = kind is "mute" or "gag" or "silence" ? punishmentId : "";
         var issuedAt = FormatDate(r.CreatedAt);
         var expiresAt = r.EndAt == 0 ? "Never" : FormatDate(r.EndAt);
         var removedAt = r.RemovedAt is { } removed ? FormatDate(removed) : "";
@@ -739,6 +809,11 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             ["adminname"] = r.Administrator, ["admin_name"] = r.Administrator,
             ["adminsteamid"] = r.AdministratorSteamId, ["admin_steamid"] = r.AdministratorSteamId,
             ["adminurl"] = adminUrl, ["admin_url"] = adminUrl,
+            ["adminid"] = r.AdminId > 0 ? r.AdminId.ToString(CultureInfo.InvariantCulture) : "",
+            ["admin_id"] = r.AdminId > 0 ? r.AdminId.ToString(CultureInfo.InvariantCulture) : "",
+            ["targetadminid"] = r.TargetAdminId?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["target_admin_id"] = r.TargetAdminId?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["playerip"] = r.Ip, ["player_ip"] = r.Ip, ["ip"] = r.Ip,
             ["reason"] = r.Reason, ["removereason"] = r.RemoveReason, ["remove_reason"] = r.RemoveReason,
             ["duration"] = FormatDuration(r.Duration),
             ["durationseconds"] = r.Duration.ToString(CultureInfo.InvariantCulture),
@@ -769,8 +844,19 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             ["nowunix"] = now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
             ["nowiso"] = now.ToString("O"),
             ["type"] = r.EventType, ["event"] = r.EventType, ["emoji"] = "📋",
+            ["punishmentid"] = punishmentId, ["punishment_id"] = punishmentId, ["id"] = punishmentId,
+            ["punishmentkind"] = kind, ["punishment_kind"] = kind,
+            ["banid"] = kind == "ban" ? punishmentId : "", ["ban_id"] = kind == "ban" ? punishmentId : "",
+            ["bantype"] = r.BanType?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["ban_type"] = r.BanType?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["commid"] = commId, ["comm_id"] = commId,
+            ["muteid"] = kind == "mute" ? punishmentId : "", ["mute_id"] = kind == "mute" ? punishmentId : "",
+            ["gagid"] = kind == "gag" ? punishmentId : "", ["gag_id"] = kind == "gag" ? punishmentId : "",
+            ["silenceid"] = kind == "silence" ? punishmentId : "", ["silence_id"] = kind == "silence" ? punishmentId : "",
             ["warningid"] = r.WarningId.ToString(CultureInfo.InvariantCulture),
             ["warning_id"] = r.WarningId.ToString(CultureInfo.InvariantCulture),
+            ["punishmentserverid"] = r.PunishmentServerId?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["punishment_server_id"] = r.PunishmentServerId?.ToString(CultureInfo.InvariantCulture) ?? "",
             ["source"] = r.Source, ["message"] = r.Message,
             ["originalissuer"] = r.OriginalIssuer, ["original_issuer"] = r.OriginalIssuer,
             ["test"] = r.IsTest ? "true" : "false",
@@ -834,12 +920,15 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         var directory = Path.Combine(AdminUtils.ConfigsDir, ModuleName, Config.Export.Directory);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, $"report-{period}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv");
-        var sb = new StringBuilder("type,player,steamid,administrator,admin_steamid,reason,duration,created_at,end_at,removed_at,warning_id,source,message,original_issuer,is_test\n");
+        var sb = new StringBuilder("type,player,steamid,administrator,admin_steamid,reason,duration,created_at,end_at,removed_at,warning_id,source,message,original_issuer,is_test,punishment_id,punishment_kind,admin_id,target_admin_id,punishment_server_id,ban_type\n");
         foreach (var r in records)
             sb.AppendLine(string.Join(',', Csv(r.EventType), Csv(r.Player), Csv(r.SteamId), Csv(r.Administrator),
                 Csv(r.AdministratorSteamId), Csv(r.Reason), r.Duration, r.CreatedAt, r.EndAt,
                 r.RemovedAt?.ToString(CultureInfo.InvariantCulture) ?? "", r.WarningId, Csv(r.Source),
-                Csv(r.Message), Csv(r.OriginalIssuer), r.IsTest));
+                Csv(r.Message), Csv(r.OriginalIssuer), r.IsTest,
+                r.PunishmentId > 0 ? r.PunishmentId.ToString(CultureInfo.InvariantCulture) : "", Csv(r.PunishmentKind),
+                r.AdminId > 0 ? r.AdminId.ToString(CultureInfo.InvariantCulture) : "", r.TargetAdminId?.ToString(CultureInfo.InvariantCulture) ?? "",
+                r.PunishmentServerId?.ToString(CultureInfo.InvariantCulture) ?? "", r.BanType?.ToString(CultureInfo.InvariantCulture) ?? ""));
         File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
         caller?.Print($"CSV отчёт сохранён: {path}");
     }

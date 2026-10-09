@@ -38,7 +38,9 @@ addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/IksAdmin_D
 
 Поддерживаются события банов, mute/gag/silence, снятия наказаний, kick-команд, выдачи и снятия варнов. Записи сохраняются в `records.json`, неотправленные webhook-запросы попадают в `failed-webhooks.jsonl`.
 
-Варны настраиваются отдельно в `addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/warnings.json`. `PlayerWebhook` принимает варны игроков, `ModeratorWebhook` — варны модераторов. Пустой URL означает отсутствие отправки этого типа варнов. Переключатели `Issued`, `Removed`, `Automatic`, `Test` и стандартные `IssuedTemplate`/`RemovedTemplate` остаются доступными. Полный JSON из Discohook можно вставить в `Messages` основного конфига по ключу события. Отчёты отдельно считают выданные и снятые варны; CSV содержит ID, источник и дату снятия. Изменения обоих конфигов применяет `css_discord_logs_reload`.
+Варны настраиваются отдельно в `addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/warnings.json`. `PlayerWebhook` принимает варны игроков, `ModeratorWebhook` — варны модераторов. Пустой URL означает отсутствие отправки этого типа варнов. Переключатели `Issued`, `Removed`, `Automatic`, `Test` остаются доступными. `IssuedTemplate` и `RemovedTemplate` принимают полный JSON сообщения из Discohook; для разных сообщений игрокам и модераторам используйте `Messages` в `warnings.json`. Старые короткие шаблоны и записи варнов в `Messages` основного конфига продолжают работать. Отчёты отдельно считают выданные и снятые варны; CSV содержит ID, источник и дату снятия. Изменения обоих конфигов применяет `css_discord_logs_reload`.
+
+Для наказаний доступны `{punishmentid}` (любой сохранённый ID), `{banid}`, `{commid}`, `{muteid}`, `{gagid}` и `{silenceid}`. При снятии и истечении используется ID исходной записи. Кик не имеет ID в БД. Дополнительные поля и применимость каждого заполнителя перечислены в `DISCORD_MESSAGES.md`.
 
 Команды:
 

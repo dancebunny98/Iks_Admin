@@ -12,7 +12,7 @@
     { key: "silence", title: "Сайленс", group: "Наказания", route: "Punishments" },
     { key: "kick", title: "Кик", group: "Наказания", route: "Punishments" },
     { key: "unban", title: "Снятие бана", group: "Наказания", route: "Punishments" },
-    { key: "uncomm", title: "Снятие мута/гага", group: "Наказания", route: "Punishments" },
+    { key: "uncomm", title: "Снятие ограничения", group: "Наказания", route: "Punishments" },
     { key: "expired", title: "Истёк срок", group: "Наказания", route: "Punishments" },
     { key: "report", title: "Отчёт", group: "Система", route: "Reports" },
     { key: "anomaly", title: "Аномалия", group: "Система", route: "Anomalies" }
@@ -20,22 +20,44 @@
   const GROUPS = ["Варны игроков", "Варны модераторов", "Наказания", "Система"];
   const VARIABLES = [
     ["Игрок", "player", "Имя цели"], ["Игрок", "steamid", "SteamID64 цели"],
-    ["Игрок", "playerurl", "Ссылка на Steam-профиль"], ["Игрок", "admin", "Выдал или снял"],
-    ["Игрок", "adminsteamid", "SteamID64 администратора"], ["Игрок", "adminurl", "Профиль администратора"],
+    ["Игрок", "playerurl", "Ссылка на Steam-профиль"], ["Игрок", "playerip", "IP цели, если известен"],
+    ["Администратор", "admin", "Выдал или снял наказание"],
+    ["Администратор", "adminsteamid", "SteamID64 действующего администратора"],
+    ["Администратор", "adminurl", "Ссылка на его Steam-профиль"],
+    ["Администратор", "adminid", "ID действующего администратора в IksAdmin"],
+    ["Администратор", "targetadminid", "ID модератора, получившего варн"],
+    ["ID наказания", "punishmentid", "ID записи; нет у кика и отчёта"],
+    ["ID наказания", "banid", "ID бана: ban, unban, expired бан"],
+    ["ID наказания", "commid", "ID ограничения чата: mute, gag, silence, uncomm"],
+    ["ID наказания", "muteid", "ID мута, включая снятие/истечение"],
+    ["ID наказания", "gagid", "ID гага, включая снятие/истечение"],
+    ["ID наказания", "silenceid", "ID сайленса, включая снятие/истечение"],
+    ["ID наказания", "warningid", "ID варна; у других событий 0"],
+    ["ID наказания", "punishmentkind", "Исходный тип: ban, mute, gag, silence, warn"],
+    ["ID наказания", "punishmentserverid", "ID сервера наказания; пусто для глобального"],
+    ["ID наказания", "bantype", "Тип бана из БД: 0 Steam, 1 IP"],
     ["Наказание", "reason", "Причина"], ["Наказание", "removereason", "Причина снятия"],
     ["Наказание", "duration", "Длительность"], ["Наказание", "durationseconds", "Длительность в секундах"],
-    ["Наказание", "type", "Тип события"], ["Наказание", "warningid", "ID варна"],
-    ["Наказание", "source", "Источник варна"], ["Наказание", "message", "Текст нарушения"],
-    ["Наказание", "originalissuer", "Первоначально выдал"], ["Наказание", "test", "Тестовый варн"],
+    ["Наказание", "durationminutes", "Длительность в целых минутах"],
+    ["Наказание", "type", "Тип события"], ["Наказание", "source", "Источник варна"],
+    ["Наказание", "message", "Текст нарушения"], ["Наказание", "originalissuer", "Первоначально выдал варн"],
+    ["Наказание", "test", "Тестовый варн: true/false"],
+    ["Наказание", "ismoderatorwarning", "Варн модератора: true/false"],
+    ["Наказание", "emoji", "Значок стандартного шаблона"],
     ["Сервер", "servername", "Название сервера"], ["Сервер", "serverid", "ID сервера"],
     ["Сервер", "serverip", "IP:порт сервера"], ["Сервер", "online", "Игроков онлайн"],
     ["Время", "issuedat", "Дата выдачи"], ["Время", "expiresat", "Дата окончания"],
     ["Время", "removedat", "Дата снятия"], ["Время", "createdunix", "Unix для <t:...:F>"],
-    ["Время", "issuediso", "ISO для timestamp"], ["Время", "now", "Текущее время"],
+    ["Время", "expiresunix", "Unix окончания; 0 если без срока"],
+    ["Время", "removedunix", "Unix снятия"], ["Время", "issuediso", "ISO выдачи для timestamp"],
+    ["Время", "expiresiso", "ISO окончания"], ["Время", "removediso", "ISO снятия"],
+    ["Время", "now", "Текущее время"], ["Время", "nowunix", "Текущее время Unix"],
+    ["Время", "nowiso", "Текущее время ISO"],
     ["Отчёт", "period", "Период"], ["Отчёт", "author", "Автор отчёта"],
     ["Отчёт", "count", "Всего событий"], ["Отчёт", "bans", "Банов"],
     ["Отчёт", "kicks", "Киков"], ["Отчёт", "comms", "Наказаний чата"],
     ["Отчёт", "warnings", "Варнов"], ["Отчёт", "removedwarnings", "Снятых варнов"],
+    ["Отчёт", "unbans", "Снятых банов"], ["Отчёт", "uncomms", "Снятых ограничений"],
     ["Отчёт", "threshold", "Порог аномалии"]
   ];
   const ALIASES = {
@@ -45,6 +67,10 @@
     admin_url: "adminurl", remove_reason: "removereason", duration_seconds: "durationseconds",
     durationminutes: "durationminutes", duration_minutes: "durationminutes", event: "type",
     warning_id: "warningid", original_issuer: "originalissuer", ismoderatorwarning: "ismoderatorwarning",
+    punishment_id: "punishmentid", id: "punishmentid", punishment_kind: "punishmentkind",
+    ban_id: "banid", ban_type: "bantype", comm_id: "commid", mute_id: "muteid",
+    gag_id: "gagid", silence_id: "silenceid", punishment_server_id: "punishmentserverid",
+    admin_id: "adminid", target_admin_id: "targetadminid", player_ip: "playerip", ip: "playerip",
     server: "servername", server_name: "servername", server_id: "serverid", server_ip: "serverip",
     issued_at: "issuedat", createdat: "issuedat", expires_at: "expiresat", removed_at: "removedat",
     created_unix: "createdunix", expires_unix: "expiresunix", removed_unix: "removedunix",
@@ -53,7 +79,9 @@
   };
   const DEFAULT_SAMPLES = {
     player: "Player One", steamid: "76561198000000000", admin: "Moderator", adminsteamid: "76561198000000001",
-    reason: "Нарушение правил чата", removereason: "Апелляция одобрена", warningid: "42",
+    reason: "Нарушение правил чата", removereason: "Апелляция одобрена", warningid: "42", punishmentid: "128",
+    adminid: "7", targetadminid: "23", playerip: "192.0.2.25", punishmentserverid: "1", bantype: "0",
+    uncommkind: "mute", expiredkind: "ban",
     source: "moderator", message: "Пример сообщения в чате", servername: "IksAdmin CS2", serverid: "1",
     serverip: "127.0.0.1:27015", online: "24", durationseconds: "3600", period: "day",
     author: "Moderator", count: "18", bans: "3", kicks: "2", comms: "5", warnings: "6",
@@ -67,9 +95,9 @@
     components: [{ type: 1, components: [{ type: 2, style: 5, label: "Профиль Steam", url: "{playerurl}" }] }]
   };
   const state = {
-    main: { Version: 1, Webhooks: { Punishments: "", Reports: "", Anomalies: "", Errors: "" }, Messages: { player_warn_issued: INITIAL_MESSAGE } },
-    warnings: { Enabled: true, PlayerWebhook: "", ModeratorWebhook: "", Issued: true, Removed: true, Automatic: true, Test: true },
-    samples: { ...DEFAULT_SAMPLES }, selected: "player_warn_issued", drafts: {}, tab: "visual", lastInput: null
+    main: { Version: 1, Webhooks: { Punishments: "", Reports: "", Anomalies: "", Errors: "" }, Messages: {} },
+    warnings: { Enabled: true, PlayerWebhook: "", ModeratorWebhook: "", Issued: true, Removed: true, Automatic: true, Test: true, Messages: {} },
+    samples: { ...DEFAULT_SAMPLES }, selected: "player_warn_issued", drafts: { player_warn_issued: INITIAL_MESSAGE }, tab: "visual", lastInput: null
   };
   const $ = id => document.getElementById(id);
   const clone = value => structuredClone(value);
@@ -77,9 +105,31 @@
   const safeUrl = value => { try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:" ? url.href : ""; } catch { return ""; } };
   const hexColor = value => `#${(Number(value) || 0).toString(16).padStart(6, "0").slice(-6)}`;
   const currentEvent = () => EVENTS.find(event => event.key === state.selected);
-  const configured = () => Object.hasOwn(state.main.Messages, state.selected);
-  const defaultMessage = () => ({ username: "IksAdmin Logs", content: "", embeds: [{ title: currentEvent().title, description: "**{player}**: {reason}", color: 5814783, fields: [] }] });
-  const currentMessage = () => state.main.Messages[state.selected] ?? (state.drafts[state.selected] ||= defaultMessage());
+  const warningEvent = key => key.startsWith("player_warn_") || key.startsWith("moderator_warn_");
+  const messageStore = () => warningEvent(state.selected) ? (state.warnings.Messages ||= {}) : state.main.Messages;
+  const sharedWarningMessage = (key = state.selected) => {
+    const template = state.warnings[key.endsWith("_issued") ? "IssuedTemplate" : "RemovedTemplate"];
+    return plainObject(template) && (Object.hasOwn(template, "embeds") || Object.hasOwn(template, "content")) ? template : null;
+  };
+  const isConfigured = key => warningEvent(key)
+    ? Object.hasOwn(state.warnings.Messages || {}, key) || (!sharedWarningMessage(key) && Object.hasOwn(state.main.Messages, key))
+    : Object.hasOwn(state.main.Messages, key);
+  const configured = () => isConfigured(state.selected);
+  const defaultMessage = () => {
+    const key = state.selected;
+    const id = warningEvent(key) ? "warningid" :
+      ({ ban: "banid", unban: "banid", mute: "muteid", gag: "gagid", silence: "silenceid", uncomm: "commid", expired: "punishmentid" })[key];
+    const title = `${currentEvent().title}${id ? ` #{${id}}` : ""}`;
+    const description = key === "report" ? "Событий: {count}\nБанов: {bans} · Ограничений чата: {comms}" :
+      key === "anomaly" ? "Событий: {count}\nПорог: {threshold}" :
+      key.endsWith("_removed") || key === "unban" || key === "uncomm"
+        ? "**{admin}** снял наказание с **{player}**. {removereason}" :
+        "**{player}**: {reason}";
+    return { username: "IksAdmin Logs", content: "", embeds: [{ title, description, color: 5814783, fields: [] }] };
+  };
+  const currentMessage = () => messageStore()[state.selected] ??
+    (warningEvent(state.selected) ? sharedWarningMessage() : null) ?? state.main.Messages[state.selected] ??
+    (state.drafts[state.selected] ||= defaultMessage());
   const plainObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
   function checkMessageShape(message) {
     if (!plainObject(message)) throw new Error("Ожидается объект сообщения Discord.");
@@ -89,6 +139,8 @@
     for (const key of ["embeds", "components"]) {
       if (message[key] !== undefined && !Array.isArray(message[key])) throw new Error(`${key} должен быть массивом.`);
     }
+    if (!(message.content || "").trim() && !(message.embeds || []).length)
+      throw new Error("Сообщению нужен content или хотя бы один embed.");
     for (const embed of message.embeds || []) {
       if (!plainObject(embed)) throw new Error("Каждый embed должен быть объектом.");
       for (const key of ["author", "footer", "image", "thumbnail"]) {
@@ -116,10 +168,25 @@
   }
   function checkWarningsConfig(data) {
     if (!plainObject(data) || ["PlayerWebhook", "ModeratorWebhook"].some(key =>
-      data[key] !== undefined && typeof data[key] !== "string")) throw new Error("Неверная структура warnings.json.");
+      data[key] !== undefined && typeof data[key] !== "string") ||
+      (data.Messages !== undefined && !plainObject(data.Messages))) throw new Error("Неверная структура warnings.json.");
+    for (const [key, message] of Object.entries(data.Messages || {})) {
+      if (!warningEvent(key)) throw new Error(`Неверный ключ сообщения варна: ${key}.`);
+      checkMessageShape(message);
+    }
+    for (const key of ["IssuedTemplate", "RemovedTemplate"]) {
+      const template = data[key];
+      if (template !== undefined && !plainObject(template)) throw new Error(`${key} должен быть объектом.`);
+      if (template && (Object.hasOwn(template, "embeds") || Object.hasOwn(template, "content"))) checkMessageShape(template);
+    }
     return data;
   }
-  const useMessage = () => { if (!configured()) state.main.Messages[state.selected] = state.drafts[state.selected] || defaultMessage(); markChanged(); return state.main.Messages[state.selected]; };
+  const useMessage = () => {
+    const store = messageStore();
+    if (!Object.hasOwn(store, state.selected)) store[state.selected] = clone(currentMessage());
+    if (warningEvent(state.selected)) delete state.main.Messages[state.selected];
+    markChanged(); return store[state.selected];
+  };
   let toastTimer;
 
   function markChanged() { $("save-state").textContent = "Изменено"; renderEventList(); }
@@ -139,10 +206,10 @@
     toast("JSON скопирован");
   }
   function renderEventList() {
-    const count = EVENTS.filter(event => Object.hasOwn(state.main.Messages, event.key)).length;
+    const count = EVENTS.filter(event => isConfigured(event.key)).length;
     $("configured-count").textContent = `${count} / ${EVENTS.length}`;
     $("event-list").innerHTML = GROUPS.map(group => `<div class="event-group">${escapeHtml(group)}</div>` + EVENTS.filter(event => event.group === group).map(event =>
-      `<button class="event-button ${state.selected === event.key ? "active" : ""}" data-event="${event.key}" type="button"><span class="event-dot ${Object.hasOwn(state.main.Messages, event.key) ? "configured" : ""}"></span><span class="event-title">${escapeHtml(event.title)}</span></button>`).join("")).join("");
+      `<button class="event-button ${state.selected === event.key ? "active" : ""}" data-event="${event.key}" type="button"><span class="event-dot ${isConfigured(event.key) ? "configured" : ""}"></span><span class="event-title">${escapeHtml(event.title)}</span></button>`).join("")).join("");
   }
   function routeState() {
     const event = currentEvent();
@@ -154,7 +221,8 @@
     const event = currentEvent(); const route = routeState();
     $("event-category").textContent = event.group;
     $("event-title").textContent = event.title;
-    $("route-label").textContent = `${configured() ? "Свой шаблон" : "Черновик нового шаблона"} · ${route.label} · ${route.disabled ? "отключено" : route.ready ? "webhook задан" : "webhook не задан"}`;
+    const templateLabel = configured() ? "Свой шаблон" : warningEvent(state.selected) && sharedWarningMessage() ? "Общий шаблон варна" : "Черновик нового шаблона";
+    $("route-label").textContent = `${templateLabel} · ${route.label} · ${route.disabled ? "отключено" : route.ready ? "webhook задан" : "webhook не задан"}`;
     $("preview-destination").textContent = `${route.label} · ${route.disabled ? "отправка отключена" : route.ready ? "webhook настроен" : "webhook не указан"}`;
   }
   function setNested(object, path, value) {
@@ -209,26 +277,70 @@
   }
   function renderVariables() {
     const search = $("variable-search").value.trim().toLowerCase();
+    const values = sampleValues();
     $("variable-list").innerHTML = [...new Set(VARIABLES.map(row => row[0]))].map(group => {
-      const rows = VARIABLES.filter(row => row[0] === group && (!search || `${row[1]} ${row[2]}`.toLowerCase().includes(search)));
-      return rows.length ? `<div class="variable-group"><h3>${group}</h3>${rows.map(row => `<div class="variable-row"><button class="button small" data-variable="${row[1]}" type="button"><code>{${row[1]}}</code></button><span>${escapeHtml(row[2])}</span></div>`).join("")}</div>` : "";
+      const rows = VARIABLES.filter(row => row[0] === group && (!search || `${row[1]} ${row[2]} ${Object.keys(ALIASES).filter(alias => alias !== row[1] && ALIASES[alias] === row[1]).join(" ")}`.toLowerCase().includes(search)));
+      return rows.length ? `<div class="variable-group"><h3>${group}</h3>${rows.map(row => {
+        const aliases = Object.keys(ALIASES).filter(alias => alias !== row[1] && ALIASES[alias] === row[1]);
+        const available = Object.hasOwn(values, row[1]) && String(values[row[1]]) !== "";
+        return `<div class="variable-row"><button class="button small" data-variable="${row[1]}" type="button"><code>{${row[1]}}</code></button><span>${escapeHtml(row[2])}<small>${available ? "Пример: " + escapeHtml(String(values[row[1]]).slice(0, 70)) : "Для этого события пусто"}${aliases.length ? " · " + escapeHtml(aliases.map(alias => `{${alias}}`).join(", ")) : ""}</small></span></div>`;
+      }).join("")}</div>` : "";
     }).join("") || `<div class="empty-editor">Ничего не найдено.</div>`;
   }
   function sampleValues() {
-    const now = new Date(); const expires = new Date(now.getTime() + Number(state.samples.durationseconds || 0) * 1000);
-    const steam = state.samples.steamid || ""; const adminSteam = state.samples.adminsteamid || "";
-    return {
-      ...state.samples, playerurl: /^\d{17}$/.test(steam) ? `https://steamcommunity.com/profiles/${steam}` : "",
-      adminurl: /^\d{17}$/.test(adminSteam) ? `https://steamcommunity.com/profiles/${adminSteam}` : "",
-      duration: `${Math.round(Number(state.samples.durationseconds || 0) / 60)} мин.`,
-      durationminutes: String(Math.floor(Number(state.samples.durationseconds || 0) / 60)),
-      type: state.selected.replace(/^(player|moderator)_/, ""), ismoderatorwarning: String(state.selected.startsWith("moderator_")),
-      issuedat: now.toLocaleString("ru-RU"), expiresat: expires.toLocaleString("ru-RU"), removedat: now.toLocaleString("ru-RU"),
-      createdunix: String(Math.floor(now.getTime() / 1000)), expiresunix: String(Math.floor(expires.getTime() / 1000)),
-      removedunix: String(Math.floor(now.getTime() / 1000)), issuediso: now.toISOString(), expiresiso: expires.toISOString(),
-      removediso: now.toISOString(), now: now.toLocaleString("ru-RU"), nowunix: String(Math.floor(now.getTime() / 1000)),
-      nowiso: now.toISOString(), emoji: "📋"
+    const now = new Date();
+    const key = state.selected;
+    const isWarning = warningEvent(key), isReport = key === "report" || key === "anomaly";
+    const isRemoval = key.endsWith("_removed") || key === "unban" || key === "uncomm";
+    const commKinds = ["mute", "gag", "silence"];
+    const kind = isWarning ? "warn" : key === "unban" ? "ban" :
+      key === "uncomm" ? (commKinds.includes(state.samples.uncommkind) ? state.samples.uncommkind : "mute") :
+      key === "expired" ? (["ban", ...commKinds].includes(state.samples.expiredkind) ? state.samples.expiredkind : "ban") : key;
+    const isBan = kind === "ban", isComm = commKinds.includes(kind);
+    const durationSeconds = isWarning || key === "kick" ? 0 : Number(state.samples.durationseconds || 0);
+    const expires = new Date(now.getTime() + durationSeconds * 1000);
+    const steam = key === "kick" ? "" : state.samples.steamid || "";
+    const adminSteam = state.samples.adminsteamid || "";
+    const currentTime = { now: now.toLocaleString("ru-RU"), nowunix: String(Math.floor(now.getTime() / 1000)), nowiso: now.toISOString() };
+    const server = { servername: state.samples.servername, serverid: state.samples.serverid, serverip: state.samples.serverip };
+    if (isReport) return {
+      ...server, ...currentTime, period: state.samples.period, author: state.samples.author,
+      count: state.samples.count, bans: state.samples.bans, kicks: state.samples.kicks,
+      comms: state.samples.comms, warnings: state.samples.warnings, removedwarnings: state.samples.removedwarnings,
+      unbans: state.samples.unbans, uncomms: state.samples.uncomms, threshold: state.samples.threshold
     };
+    const values = {
+      ...state.samples, ...server, ...currentTime, steamid: steam,
+      playerurl: /^\d{17}$/.test(steam) ? `https://steamcommunity.com/profiles/${steam}` : "",
+      adminurl: /^\d{17}$/.test(adminSteam) ? `https://steamcommunity.com/profiles/${adminSteam}` : "",
+      playerip: isWarning || key === "kick" ? "" : state.samples.playerip,
+      targetadminid: key.startsWith("moderator_warn_") ? state.samples.targetadminid : "",
+      punishmentserverid: isBan || isComm ? state.samples.punishmentserverid : "",
+      bantype: isBan ? state.samples.bantype : "",
+      punishmentid: isWarning ? state.samples.warningid : isBan || isComm ? state.samples.punishmentid : "",
+      punishmentkind: kind,
+      banid: isBan ? state.samples.punishmentid : "",
+      commid: isComm ? state.samples.punishmentid : "",
+      muteid: kind === "mute" ? state.samples.punishmentid : "",
+      gagid: kind === "gag" ? state.samples.punishmentid : "",
+      silenceid: kind === "silence" ? state.samples.punishmentid : "",
+      warningid: isWarning ? state.samples.warningid : "0",
+      source: key.startsWith("moderator_warn_") ? "administrator" : isWarning ? state.samples.source : "",
+      message: isWarning ? state.samples.message : "",
+      originalissuer: isWarning ? state.samples.admin : "",
+      test: isWarning ? state.samples.test : "false",
+      duration: durationSeconds ? `${Math.round(durationSeconds / 60)} мин.` : "Навсегда",
+      durationseconds: String(durationSeconds), durationminutes: String(Math.floor(durationSeconds / 60)),
+      type: key.replace(/^(player|moderator)_/, ""), ismoderatorwarning: String(key.startsWith("moderator_")),
+      issuedat: now.toLocaleString("ru-RU"), expiresat: durationSeconds ? expires.toLocaleString("ru-RU") : "Never",
+      removedat: isRemoval ? now.toLocaleString("ru-RU") : "",
+      createdunix: String(Math.floor(now.getTime() / 1000)), expiresunix: durationSeconds ? String(Math.floor(expires.getTime() / 1000)) : "0",
+      removedunix: isRemoval ? String(Math.floor(now.getTime() / 1000)) : "",
+      issuediso: now.toISOString(), expiresiso: durationSeconds ? expires.toISOString() : "",
+      removediso: isRemoval ? now.toISOString() : "", emoji: "📋"
+    };
+    for (const key of ["period", "author", "count", "bans", "kicks", "comms", "warnings", "removedwarnings", "unbans", "uncomms", "threshold", "uncommkind", "expiredkind"]) delete values[key];
+    return values;
   }
   const placeholderPattern = /\{([a-z][a-z0-9_]*)\}/gi;
   function expand(text, values) {
@@ -280,7 +392,7 @@
       if (!Object.hasOwn(values, ALIASES[key.toLowerCase()] || key.toLowerCase())) unknown.add(match);
       return match;
     });
-    if (unknown.size) errors.push(`Неизвестные заполнители: ${[...unknown].join(", ")}.`);
+    if (unknown.size) errors.push(`Недоступные для события или неизвестные заполнители: ${[...unknown].join(", ")}.`);
     return [...new Set(errors)];
   }
   function renderPreview() {
@@ -339,8 +451,11 @@
       const parsed = JSON.parse($("raw-json").value);
       let message = parsed;
       if (parsed.Messages) message = parsed.Messages[state.selected];
+      else if (warningEvent(state.selected) && parsed[state.selected.endsWith("_issued") ? "IssuedTemplate" : "RemovedTemplate"])
+        message = parsed[state.selected.endsWith("_issued") ? "IssuedTemplate" : "RemovedTemplate"];
       else if (parsed[state.selected]) message = parsed[state.selected];
-      state.main.Messages[state.selected] = checkMessageShape(message);
+      messageStore()[state.selected] = checkMessageShape(message);
+      if (warningEvent(state.selected)) delete state.main.Messages[state.selected];
       delete state.drafts[state.selected]; markChanged(); renderHeading(); renderVisual(); renderPreview();
       toast("JSON применён"); return true;
     } catch (error) { toast(`Ошибка JSON: ${error.message}`); return false; }
@@ -399,8 +514,11 @@
     </div></div>`;
   }
   function renderSamples() {
-    const names = { player: "Игрок", steamid: "SteamID64", admin: "Администратор", adminsteamid: "SteamID64 админа", reason: "Причина", removereason: "Причина снятия", warningid: "ID варна", source: "Источник", message: "Сообщение", servername: "Сервер", serverid: "ID сервера", serverip: "IP:порт", online: "Онлайн", durationseconds: "Длительность, сек", period: "Период", author: "Автор отчёта", count: "Событий", bans: "Банов", kicks: "Киков", comms: "Ограничений чата", warnings: "Варнов", removedwarnings: "Снятых варнов", threshold: "Порог", unbans: "Снятых банов", uncomms: "Снятых ограничений", test: "Тест" };
-    $("sample-fields").innerHTML = Object.entries(names).map(([key, name]) => `<label>${name}<input data-sample="${key}" value="${escapeHtml(state.samples[key])}"></label>`).join("");
+    const names = { player: "Игрок", steamid: "SteamID64", playerip: "IP цели", admin: "Администратор", adminsteamid: "SteamID64 админа", adminid: "ID администратора", targetadminid: "ID модератора-цели", punishmentid: "ID наказания", warningid: "ID варна", punishmentserverid: "ID сервера наказания", bantype: "Тип бана (0 Steam, 1 IP)", reason: "Причина", removereason: "Причина снятия", source: "Источник", message: "Сообщение", servername: "Сервер", serverid: "ID сервера", serverip: "IP:порт", online: "Онлайн", durationseconds: "Длительность, сек", period: "Период", author: "Автор отчёта", count: "Событий", bans: "Банов", kicks: "Киков", comms: "Ограничений чата", warnings: "Варнов", removedwarnings: "Снятых варнов", threshold: "Порог", unbans: "Снятых банов", uncomms: "Снятых ограничений", test: "Тест" };
+    const choice = (key, name, options) => `<label>${name}<select data-sample="${key}">${options.map(option => `<option value="${option}" ${state.samples[key] === option ? "selected" : ""}>${option}</option>`).join("")}</select></label>`;
+    $("sample-fields").innerHTML = Object.entries(names).map(([key, name]) => `<label>${name}<input data-sample="${key}" value="${escapeHtml(state.samples[key])}"></label>`).join("") +
+      choice("uncommkind", "Снятие ограничения: исходный тип", ["mute", "gag", "silence"]) +
+      choice("expiredkind", "Истечение: исходный тип", ["ban", "mute", "gag", "silence"]);
   }
   function updateSetting(path, value) {
     const parts = path.split("."); const root = parts.shift(); let object = state[root];
@@ -469,7 +587,7 @@
     $("paste-discohook").addEventListener("click", async () => { try { $("raw-json").value = await navigator.clipboard.readText(); $("raw-json").dataset.dirty = "true"; toast("JSON вставлен. Нажмите «Применить JSON»."); } catch { toast("Нет доступа к буферу. Вставьте JSON вручную."); } });
     $("import-message-file").addEventListener("click", () => $("message-file").click());
     $("message-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = await readJson(event.target.files[0]); setTab("json"); $("raw-json").value = JSON.stringify(data, null, 2); $("raw-json").dataset.dirty = "true"; toast("Файл загружен. Примените JSON."); } catch (error) { toast(`Ошибка файла: ${error.message}`); } event.target.value = ""; });
-    $("clear-message").addEventListener("click", () => { if (!confirm("Удалить свой шаблон этого события? Стандартный embed плагина останется доступным.")) return; delete state.main.Messages[state.selected]; delete state.drafts[state.selected]; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); });
+    $("clear-message").addEventListener("click", () => { if (!confirm("Удалить свой шаблон этого события? Плагин использует общий шаблон варна или стандартный embed.")) return; delete messageStore()[state.selected]; if (warningEvent(state.selected)) delete state.main.Messages[state.selected]; delete state.drafts[state.selected]; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); });
     $("copy-message").addEventListener("click", () => { if (savePendingRaw()) copyText(JSON.stringify(currentMessage(), null, 2)); });
     $("download-message").addEventListener("click", () => { if (savePendingRaw()) download(`${state.selected}.json`, currentMessage()); });
     $("import-configs").addEventListener("click", () => $("import-dialog").showModal());
@@ -488,11 +606,11 @@
     $("settings-dialog").addEventListener("change", event => { if (event.target.type === "checkbox") event.target.dispatchEvent(new Event("input", { bubbles: true })); });
     $("settings-dialog").addEventListener("click", event => { if (!event.target.hasAttribute("data-reveal")) return; const input = event.target.parentElement.querySelector("input"); input.type = input.type === "password" ? "text" : "password"; event.target.textContent = input.type === "password" ? "Показать" : "Скрыть"; });
     $("main-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = checkMainConfig(await readJson(event.target.files[0])); state.main = data; state.main.Messages ||= {}; state.main.Webhooks ||= {}; state.drafts = {}; $("raw-json").dataset.dirty = "false"; markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); toast("Основной конфиг загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
-    $("warnings-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { state.warnings = checkWarningsConfig(await readJson(event.target.files[0])); markChanged(); renderHeading(); toast("Конфиг варнов загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
+    $("warnings-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { state.warnings = checkWarningsConfig(await readJson(event.target.files[0])); markChanged(); renderAll(); if (state.tab === "json") refreshRaw(); toast("Конфиг варнов загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
     $("project-file").addEventListener("change", async event => { if (!event.target.files[0]) return; try { const data = await readJson(event.target.files[0]); if (data.format !== "iksadmin-discord-studio-v1") throw new Error("Неверный формат проекта"); checkMainConfig(data.main); checkWarningsConfig(data.warnings); state.main = data.main; state.main.Messages ||= {}; state.main.Webhooks ||= {}; state.warnings = data.warnings; state.samples = { ...DEFAULT_SAMPLES, ...(plainObject(data.samples) ? data.samples : {}) }; state.drafts = {}; $("raw-json").dataset.dirty = "false"; renderAll(); if (state.tab === "json") refreshRaw(); toast("Проект загружен"); } catch (error) { toast(`Ошибка: ${error.message}`); } event.target.value = ""; });
     $("preview-data-button").addEventListener("click", () => { renderSamples(); $("sample-dialog").showModal(); });
-    $("sample-fields").addEventListener("input", event => { if (!event.target.dataset.sample) return; state.samples[event.target.dataset.sample] = event.target.value; renderPreview(); });
-    $("reset-samples").addEventListener("click", () => { state.samples = { ...DEFAULT_SAMPLES }; renderSamples(); renderPreview(); });
+    $("sample-fields").addEventListener("input", event => { if (!event.target.dataset.sample) return; state.samples[event.target.dataset.sample] = event.target.value; renderPreview(); renderVariables(); });
+    $("reset-samples").addEventListener("click", () => { state.samples = { ...DEFAULT_SAMPLES }; renderSamples(); renderPreview(); renderVariables(); });
   }
 
   attachHandlers(); renderAll();

@@ -80,27 +80,7 @@
     "uncomm": { "Player": true, "Administrator": true, "Reason": true, "Duration": false, "IssuedAt": true, "ExpiresAt": false, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": false },
     "expired": { "Player": true, "Administrator": true, "Reason": true, "Duration": true, "IssuedAt": true, "ExpiresAt": true, "Type": true, "Ip": false, "Server": true, "Map": false, "Online": true, "PreviousPunishments": true }
   },
-  "Messages": {
-    "player_warn_issued": {
-      "content": "",
-      "embeds": [
-        {
-          "title": "Warning #{warningid}",
-          "description": "**{player}**: {reason}",
-          "color": 15105570,
-          "fields": [
-            { "name": "SteamID64", "value": "{steamid}", "inline": true },
-            { "name": "Source", "value": "{source}", "inline": true }
-          ]
-        }
-      ],
-      "components": [
-        { "type": 1, "components": [
-          { "type": 2, "style": 5, "label": "Steam profile", "url": "https://steamcommunity.com/profiles/{steamid}" }
-        ] }
-      ]
-    }
-  },
+  "Messages": {},
   "Reports": {
     "Enabled": true,
     "IntervalMinutes": 60,
