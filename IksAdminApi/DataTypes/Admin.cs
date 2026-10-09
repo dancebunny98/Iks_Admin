@@ -57,10 +57,10 @@ public class Admin
         return AdminUtils.GetGroup(GroupId);
     }}
     public bool IsDisabled {get {
-        return Disabled == 1 || IsDisabledByWarns || IsDisabledByEnd;
+        return Disabled == 1 || IsDisabledByEnd;
     }}
     public bool IsDisabledByWarns {get {
-        return Warns.Count(warn => !warn.IsTest) >= AdminUtils.CoreApi.Config.MaxWarns;
+        return false;
     }}
     public bool IsDisabledByEnd {get {
         return EndAt != null && EndAt < AdminUtils.CurrentTimestamp();

@@ -127,6 +127,11 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
     private void PrepareRules()
     {
         _regexRules.Clear();
+        if (!Config.AutomaticRulesEnabled)
+        {
+            Logger.LogInformation("Automatic chat rules are disabled; manual warnings remain available.");
+            return;
+        }
         foreach (var rule in Config.Rules.Where(x => x.Enabled && x.MatchType.Equals("Regex", StringComparison.OrdinalIgnoreCase)))
         {
             foreach (var pattern in new[] { rule.Pattern }.Concat(rule.Patterns).Concat(rule.Allowlist)
@@ -151,7 +156,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
 
     private HookResult OnSay(CCSPlayerController? player, CommandInfo command)
     {
-        if (!Config.Enabled || player is not { IsValid: true, IsBot: false } ||
+        if (!Config.Enabled || !Config.AutomaticRulesEnabled ||
+            player is not { IsValid: true, IsBot: false } ||
             player.AuthorizedSteamID is null) return HookResult.Continue;
         var team = command.GetArg(0) == "say_team";
         if (team ? !Config.CheckTeamChat : !Config.CheckPublicChat) return HookResult.Continue;
@@ -350,7 +356,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 CreatedAt = now,
                 IssuedImmunity = Api.ConsoleAdmin?.CurrentImmunity
             };
-            _ = SaveWarningAsync(warning, null, new PlayerInfo(player));
+            _ = SaveWarningAsync(warning, null);
         }
         if (!canAct || Api.ThisServer is null) return;
         var action = rule.Action.ToLowerInvariant();
@@ -373,7 +379,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
         }
     }
 
-    private async Task SaveWarningAsync(PlayerWarning warning, CCSPlayerController? moderator, PlayerInfo? target)
+    private async Task SaveWarningAsync(PlayerWarning warning, CCSPlayerController? moderator)
     {
         // Database operations may yield; player and menu updates must return to the game thread.
         warning.AdminId = moderator?.Admin()?.Id ?? Api.ConsoleAdmin?.Id ?? 0;
@@ -387,27 +393,15 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             var countable = active.Where(x => !x.IsAdminWarning &&
                 !x.Reason.Trim().Equals("test", StringComparison.OrdinalIgnoreCase) &&
                 (x.Source == "automatic" ? escalation.CountAutomaticWarnings : escalation.CountManualWarnings)).ToList();
-            var thresholdReached = countable.Any(x => x.Id == warning.Id) &&
-                                   escalation.Enabled && escalation.WarningThreshold > 0 &&
-                                   countable.Count == escalation.WarningThreshold;
             Server.NextFrame(() =>
             {
                 var recipient = PlayersUtils.GetControllerBySteamId(warning.SteamId);
                 var displayedReason = _translations.GetValueOrDefault(warning.Reason, warning.Reason);
                 if (recipient is { IsValid: true })
-                    Api.Notify(recipient, T("menu_main"), escalation.WarningThreshold > 0
-                        ? T("warn_received", countable.Count, escalation.WarningThreshold, displayedReason)
-                        : T("warn_received_no_threshold", countable.Count, displayedReason), AdminNotice.Warning);
+                    Api.Notify(recipient, T("menu_main"),
+                        T("warn_received_no_threshold", countable.Count, displayedReason), AdminNotice.Warning);
                 if (moderator is { IsValid: true })
                     Api.Notify(moderator, T("menu_main"), T("warn_saved", countable.Count));
-                if (thresholdReached && target is not null)
-                    ApplyThresholdMute(target, countable);
-                if (Config.NotifyModeratorsAtThreshold && thresholdReached)
-                {
-                    foreach (var admin in PlayersUtils.GetOnlinePlayers().Where(x => x.HasPermissions(ReviewPermission)))
-                        Api.Notify(admin, T("menu_main"), T("threshold_notice", warning.PlayerName, countable.Count),
-                            AdminNotice.Warning);
-                }
             });
             if (Api.AllAdmins.Any(x => x.USteamId == warning.SteamId))
                 await Api.ReloadDataFromDb();
@@ -419,46 +413,6 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                 T("storage_error"), AdminNotice.Error));
         }
         finally { _warningSaveGate.Release(); }
-    }
-
-    private void ApplyThresholdMute(PlayerInfo target, List<PlayerWarning> warnings)
-    {
-        if (Api.ThisServer is null) return;
-        var escalation = Config.WarningEscalation;
-        var advertising = warnings.Any(x => WarningSeverity(x).Advertising);
-        var severity = warnings.Max(x => WarningSeverity(x).Severity);
-        var minutes = advertising && escalation.AdvertisingPermanent ? 0 : severity switch
-        {
-            1 => escalation.LowMuteMinutes,
-            2 => escalation.MediumMuteMinutes,
-            _ => escalation.HighMuteMinutes
-        };
-        if (minutes < 0) return;
-        var reason = T("mute_reason", warnings.Count);
-        var comm = new PlayerComm(target, PlayerComm.MuteTypes.MuteChat, reason, minutes, Api.ThisServer.Id)
-            { AdminId = Api.ConsoleAdmin.Id };
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                var result = await Api.AddComm(comm);
-                if (result.QueryStatus != 0)
-                    Logger.LogWarning("Automatic chat mute after {Count} warnings failed: {Status}.", warnings.Count, result.QueryStatus);
-            }
-            catch (Exception ex) { Logger.LogError(ex, "Could not apply warning threshold chat mute."); }
-        });
-    }
-
-    private (int Severity, bool Advertising) WarningSeverity(PlayerWarning warning)
-    {
-        var rule = Config.Rules.FirstOrDefault(x => x.Id == warning.RuleId && warning.RuleId.Length > 0);
-        if (rule is not null) return (Math.Clamp(rule.Severity, 1, 3), rule.Advertising);
-        var reason = Config.WarningReasons.FirstOrDefault(x => x.Text.Equals(warning.Reason, StringComparison.OrdinalIgnoreCase));
-        if (reason is not null) return (Math.Clamp(reason.Severity, 1, 3), reason.Advertising);
-        rule = Config.Rules.FirstOrDefault(x => x.Reason.Equals(warning.Reason, StringComparison.OrdinalIgnoreCase));
-        return rule is null
-            ? (Math.Clamp(Config.WarningEscalation.DefaultSeverity, 1, 3), false)
-            : (Math.Clamp(rule.Severity, 1, 3), rule.Advertising);
     }
 
     private static CCSPlayerController? FindPlayer(string search)
@@ -497,7 +451,6 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             caller.PrintToChat(T("invalid_reason"));
             return false;
         }
-        var info = new PlayerInfo(target);
         var warning = new PlayerWarning
         {
             SteamId = target.AuthorizedSteamID!.SteamId64,
@@ -508,7 +461,7 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
             CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
             IssuedImmunity = caller.Admin()?.CurrentImmunity
         };
-        _ = SaveWarningAsync(warning, caller, info);
+        _ = SaveWarningAsync(warning, caller);
         return true;
     }
 
@@ -593,6 +546,8 @@ public sealed class ChatModeration : AdminModule, IPluginConfig<ChatModerationCo
                     await Api.ReloadDataFromDb();
                 Server.NextFrame(() =>
                 {
+                    if (removed && PlayersUtils.GetControllerBySteamId(steamId) is { IsValid: true } recipient)
+                        Api.Notify(recipient, T("menu_main"), T("warn_revoked"), AdminNotice.Success);
                     if (!caller.IsValid) return;
                     Api.Notify(caller, T("menu_main"), T(removed ? "warn_revoked" : "warn_not_found"),
                         removed ? AdminNotice.Success : AdminNotice.Warning);

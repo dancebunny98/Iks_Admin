@@ -232,11 +232,6 @@ public class Main : BasePlugin
                         await AdminApi.UpdateAdmin(AdminApi.ConsoleAdmin, admin, false);
                     });
                 }
-                if (admin.IsDisabledByWarns)
-                {
-                    player.Print(Localizer["ActionError.DisabledByWarns"]);
-                }
-
                 if (admin.HasPermissions("other.cs_votekick_immunity"))
                 {
                     player!.CannotBeKicked = true;

@@ -1,6 +1,8 @@
 {
   "Enabled": true,
   "Webhook": "",
+  "PlayerWebhook": "",
+  "ModeratorWebhook": "",
   "Issued": true,
   "Removed": true,
   "Automatic": true,

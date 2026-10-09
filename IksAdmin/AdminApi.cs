@@ -669,11 +669,6 @@ public class AdminApi : IIksAdminApi
                     return;
                 }
             }
-            if (p != null && p.Admin() != null && p.Admin()!.IsDisabledByWarns && !forAll)
-            {
-                info.Reply(Localizer["ActionError.DisabledByWarns"]);
-                return;
-            }
             if (p != null && p.Admin() != null && p.Admin()!.IsDisabledByEnd && !forAll)
             {
                 info.Reply(Localizer["ActionError.DisabledByEnd"]);
@@ -2008,6 +2003,8 @@ public class AdminApi : IIksAdminApi
         announce = eData.Get<bool>("announce");
         Server.NextWorldUpdate(() =>
         {
+            if (warn.TargetAdmin?.Controller is { IsValid: true } recipient)
+                Notify(recipient, "IksAdmin", $"{issuer.CurrentName}: {warn.Reason}", AdminNotice.Warning);
             if (announce)
                 MsgAnnounces.Warn(warn);
         });
@@ -2051,6 +2048,8 @@ public class AdminApi : IIksAdminApi
         eData.Invoke("delete_warn_post");
         Server.NextWorldUpdate(() =>
         {
+            if (warn.TargetAdmin?.Controller is { IsValid: true } recipient)
+                Notify(recipient, "IksAdmin", $"#{warn.Id}: {warn.Reason}", AdminNotice.Success);
             if (announce)
                 MsgAnnounces.WarnDelete(warn);
         });

@@ -18,7 +18,7 @@
   "CommandReplacement": { // Позволяет заменить название команды
     //  "css_respawn" : "css_arespawn" //например
   },
-  "MaxWarns": 3, // Максимальное число варнов при котором отключается админка
+  "MaxWarns": 3, // Устаревшая настройка: варны больше не отключают админку
   "WarnReasons": [
     { "Title": "WarnReason.Rules", "Text": "WarnReason.Rules", "HideFromMenu": false },
     { "Title": "WarnReason.Abuse", "Text": "WarnReason.Abuse", "HideFromMenu": false },

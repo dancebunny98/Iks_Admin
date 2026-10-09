@@ -207,7 +207,6 @@ public static class MsgAnnounces
                 .Replace("{name}", warn.TargetAdmin?.CurrentName ?? _localizer["Other.Unknown"])
                 .Replace("{reason}", warn.Reason)
                 .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
-                .Replace("{max}", _api.Config.MaxWarns.ToString())
                 .Replace("{duration}", (AdminUtils.GetDurationString(warn.Duration)).ToString()), tag: _localizer["Tag"]
         );
     }
@@ -219,7 +218,6 @@ public static class MsgAnnounces
                 .Replace("{name}", warn.TargetAdmin?.CurrentName ?? _localizer["Other.Unknown"])
                 .Replace("{reason}", warn.Reason)
                 .Replace("{now}", (warn.TargetAdmin?.Warns.Count(x => !x.IsTest) ?? 0).ToString())
-                .Replace("{max}", _api.Config.MaxWarns.ToString())
                 .Replace("{id}", warn.Id.ToString()), tag: _localizer["Tag"]
         );
     }

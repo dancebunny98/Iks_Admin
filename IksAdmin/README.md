@@ -1,5 +1,7 @@
 # IksAdmin
 
+When upgrading the core, deploy both `plugins/IksAdmin/IksAdmin.dll` and `shared/IksAdminApi/IksAdminApi.dll` from the same `IksAdminCore` artifact. Preserve the live `configs/plugins/IksAdmin/core.json`; the bundled file is an example with placeholder database credentials and server identity. Replacing the live file can make all administrator privileges unavailable.
+
 IksAdmin is the core administration plugin for CounterStrikeSharp. It provides
 player punishments, administrator groups, permissions, menus, and the shared
 `IksAdminApi` capability used by optional modules.

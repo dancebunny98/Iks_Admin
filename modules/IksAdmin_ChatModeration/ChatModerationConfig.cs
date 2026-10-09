@@ -7,6 +7,7 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public override int Version { get; set; } = 1;
     public string Language { get; set; } = "ru";
     public bool Enabled { get; set; } = true;
+    public bool AutomaticRulesEnabled { get; set; } = false;
     public bool CheckPublicChat { get; set; } = true;
     public bool CheckTeamChat { get; set; } = true;
     public bool IgnoreChatCommands { get; set; } = true;
@@ -14,7 +15,7 @@ public sealed class ChatModerationConfig : BasePluginConfig
     public List<ulong> ExemptSteamIds { get; set; } = [];
     public int HistoryLimit { get; set; } = 50;
     public WarningEscalationConfig WarningEscalation { get; set; } = new();
-    public bool NotifyModeratorsAtThreshold { get; set; } = true;
+    public bool NotifyModeratorsAtThreshold { get; set; } = false;
     public int MaxStoredMessageLength { get; set; } = 300;
     public int RegexTimeoutMilliseconds { get; set; } = 50;
     public List<WarningReason> WarningReasons { get; set; } =
@@ -39,19 +40,19 @@ public sealed class ChatModerationConfig : BasePluginConfig
                 @"(?i)discord\.gg/MfKUp4F(?![\p{L}\p{N}._/@-])",
                 @"(?i)discord\.com/invite/MfKUp4F(?![\p{L}\p{N}._/@-])"
             ],
-            Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+            Enabled = false, Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
         },
         new()
         {
             Id = "listed-project-names", Reason = "reason_advertising", MatchType = "Regex",
-            Patterns = ProjectPatterns(), Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+            Patterns = ProjectPatterns(), Enabled = false, Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
         },
         new()
         {
             Id = "links", Reason = "reason_advertising", MatchType = "Domain", Pattern = "*",
             Allowlist = ["quickfirecorp.ru", "213.21.10.140"],
             AllowedUrls = ["discord.gg/MfKUp4F", "discord.com/invite/MfKUp4F"],
-            Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
+            Enabled = false, Action = "Warn", BlockMessage = true, Severity = 3, Advertising = true
         },
         new()
         {
@@ -61,16 +62,16 @@ public sealed class ChatModerationConfig : BasePluginConfig
                 @"(?i)(?<![\p{L}\p{N}])(?:quick[\W_]*fire|квик[\W_]*фа[йе]р)(?![\p{L}\p{N}]).{0,40}(?<!не\s)(?<![\p{L}\p{N}])(?:говн[оа]|помойк[а-яё]*|скам|дн[оа]|отсто[йя]|мусор[а-яё]*|дерьм[оа]|херн[яи])(?![\p{L}\p{N}])",
                 @"(?i)(?<!не\s)(?<![\p{L}\p{N}])(?:говн[оа]|помойк[а-яё]*|скам|дн[оа]|отсто[йя]|мусор[а-яё]*|дерьм[оа]|херн[яи])(?![\p{L}\p{N}]).{0,40}(?<![\p{L}\p{N}])(?:quick[\W_]*fire|квик[\W_]*фа[йе]р)(?![\p{L}\p{N}])"
             ],
-            Action = "Warn", BlockMessage = true, Severity = 2
+            Enabled = false, Action = "Warn", BlockMessage = true, Severity = 2
         },
         new()
         {
             Id = "profanity", Reason = "reason_profanity", MatchType = "Regex",
             Pattern = @"(?i)(?<![\p{L}\p{N}])(?:х[уy][йеёяюи][а-яё]*|п[иы][з3]д[а-яё]*|[её]б[а-яё]*|бл[яеё](?:д[а-яё]*)?|сук[аиу][а-яё]*|мудак[а-яё]*|fuck(?:ing|ed|er|s)?|shit(?:ty|s)?|bitch(?:es|y)?)(?![\p{L}\p{N}])",
-            Action = "Warn", BlockMessage = true, Severity = 2
+            Enabled = false, Action = "Warn", BlockMessage = true, Severity = 2
         },
-        new() { Id = "caps", Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false, Severity = 1 },
-        new() { Id = "repeat", Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false, Severity = 1 }
+        new() { Id = "caps", Enabled = false, Reason = "reason_caps", MatchType = "Caps", MinLength = 12, Threshold = 80, Action = "Warn", BlockMessage = false, Severity = 1 },
+        new() { Id = "repeat", Enabled = false, Reason = "reason_repeat", MatchType = "Repeat", Threshold = 8, Action = "Warn", BlockMessage = false, Severity = 1 }
     ];
 
     private static List<string> ProjectPatterns() =>
@@ -92,7 +93,7 @@ public sealed class ChatModerationConfig : BasePluginConfig
 
 public sealed class WarningEscalationConfig
 {
-    public bool Enabled { get; set; } = true;
+    public bool Enabled { get; set; } = false;
     public int WarningThreshold { get; set; } = 3;
     public int DefaultSeverity { get; set; } = 2;
     public int LowMuteMinutes { get; set; } = 30;

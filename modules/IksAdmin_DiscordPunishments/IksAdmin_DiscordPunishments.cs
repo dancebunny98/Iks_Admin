@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Text.Encodings.Web;
 using System.Collections.Concurrent;
 using CounterStrikeSharp.API;
@@ -21,6 +23,7 @@ public sealed class DiscordLogsConfig : BasePluginConfig
     public EmbedConfig EmbedSettings { get; set; } = new();
     public Dictionary<string, TemplateConfig> Templates { get; set; } = TemplateConfig.Defaults();
     public Dictionary<string, FieldConfig> Fields { get; set; } = FieldConfig.Defaults();
+    public Dictionary<string, JsonElement> Messages { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public ReportConfig Reports { get; set; } = new();
     public ExportConfig Export { get; set; } = new();
     public PermissionConfig Permissions { get; set; } = new();
@@ -101,6 +104,8 @@ public sealed class WarningLogConfig
 {
     public bool Enabled { get; set; } = true;
     public string Webhook { get; set; } = "";
+    public string PlayerWebhook { get; set; } = "";
+    public string ModeratorWebhook { get; set; } = "";
     public bool Issued { get; set; } = true;
     public bool Removed { get; set; } = true;
     public bool Automatic { get; set; } = true;
@@ -171,6 +176,7 @@ public sealed class PunishmentRecord
     public string Source { get; set; } = "";
     public string Message { get; set; } = "";
     public string OriginalIssuer { get; set; } = "";
+    public bool IsModeratorWarning { get; set; }
     public bool IsTest { get; set; }
 }
 
@@ -181,6 +187,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private readonly List<PunishmentRecord> _records = new();
     private readonly HashSet<string> _expiredSent = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _dispatchKeys = new(StringComparer.Ordinal);
+    private static readonly Regex Placeholder = new(@"\{([a-z][a-z0-9_]*)\}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private string _dataPath = "";
     private string _dispatchStatePath = "";
     private string _failedPath = "";
@@ -342,6 +349,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             OriginalIssuer = issuer?.CurrentName ?? "CONSOLE",
             Reason = warn.Reason,
             Source = "administrator",
+            IsModeratorWarning = true,
             IsTest = warn.IsTest,
             CreatedAt = warn.CreatedAt,
             RemovedAt = removed ? warn.DeletedAt ?? AdminUtils.CurrentTimestamp() : null
@@ -448,21 +456,25 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         };
         anomaly.Fields.Add(Field("Порог", Config.Reports.AnomalyThresholdPerHour.ToString(CultureInfo.InvariantCulture)));
         anomaly.Fields.Add(Field("Фактическое значение", records.Count.ToString(CultureInfo.InvariantCulture)));
-        await SendWebhookWithRetry(Config.Webhooks.Anomalies, new { username = "IksAdmin Logs", embeds = new[] { anomaly } }, "anomaly");
+        var fallback = new { username = "IksAdmin Logs", embeds = new[] { anomaly }, allowed_mentions = new { parse = Array.Empty<string>() } };
+        await SendWebhookWithRetry(Config.Webhooks.Anomalies,
+            BuildConfiguredMessage("anomaly", ReportValues("scheduler", records, "CONSOLE"), () => fallback), "anomaly");
     }
 
     private async Task SendAsync(PunishmentRecord record)
     {
         try
         {
-            var url = (record.EventType is "warn_issued" or "warn_removed") && !string.IsNullOrWhiteSpace(_warningConfig.Webhook)
-                ? _warningConfig.Webhook : Config.Webhooks.Punishments;
+            var warningEvent = record.EventType is "warn_issued" or "warn_removed";
+            var url = warningEvent
+                ? record.IsModeratorWarning ? _warningConfig.ModeratorWebhook : _warningConfig.PlayerWebhook
+                : Config.Webhooks.Punishments;
             if (string.IsNullOrWhiteSpace(url))
             {
                 Logger.LogWarning("[{Module}] webhook is empty; event {EventType} was recorded locally but not sent", ModuleName, record.EventType);
                 return;
             }
-            var payload = new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) } };
+            var payload = BuildMessage(record);
             await SendWebhookWithRetry(url, payload, record.EventType);
         }
         catch (Exception exception)
@@ -540,6 +552,122 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private static bool IsRetryable(HttpStatusCode status) =>
         status == HttpStatusCode.RequestTimeout || status == HttpStatusCode.TooManyRequests || (int)status >= 500;
 
+    private object BuildMessage(PunishmentRecord record)
+    {
+        var key = record.EventType is "warn_issued" or "warn_removed"
+            ? record.IsModeratorWarning ? "moderator_" + record.EventType : "player_" + record.EventType
+            : record.EventType;
+        return BuildConfiguredMessage(key, Values(record),
+            () => new { username = "IksAdmin Logs", embeds = new[] { BuildEmbed(record) }, allowed_mentions = new { parse = Array.Empty<string>() } });
+    }
+
+    private object BuildConfiguredMessage(string key, Dictionary<string, string> values, Func<object> fallback)
+    {
+        if (Config.Messages.TryGetValue(key, out var template) && template.ValueKind == JsonValueKind.Object)
+        {
+            try
+            {
+                var message = JsonNode.Parse(template.GetRawText())!.AsObject();
+                ExpandNode(message, values);
+                ValidateMessage(message);
+                message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
+                return message;
+            }
+            catch (Exception exception)
+            {
+                Logger.LogError(exception, "[{Module}] invalid Discord message template {Template}", ModuleName, key);
+            }
+        }
+        return fallback();
+    }
+
+    private void ExpandNode(JsonNode node, Dictionary<string, string> values)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (var item in obj.ToList())
+            {
+                if (item.Value is JsonValue value && value.TryGetValue<string>(out var text))
+                    obj[item.Key] = Expand(text, values);
+                else if (item.Value is not null) ExpandNode(item.Value, values);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (var i = 0; i < array.Count; i++)
+            {
+                if (array[i] is JsonValue value && value.TryGetValue<string>(out var text))
+                    array[i] = Expand(text, values);
+                else if (array[i] is not null) ExpandNode(array[i]!, values);
+            }
+        }
+    }
+
+    private static void ValidateMessage(JsonObject message)
+    {
+        if (message["attachments"] is JsonArray { Count: > 0 })
+            throw new ArgumentException("Discohook attachments require multipart upload and are not supported");
+        if (message["username"] is JsonValue username && username.GetValue<string>().Length > 80)
+            throw new ArgumentException("Discord webhook username exceeds 80 characters");
+        if (message["content"] is JsonValue content && content.GetValue<string>().Length > 2000)
+            throw new ArgumentException("Discord content exceeds 2000 characters");
+        if (string.IsNullOrWhiteSpace(message["content"]?.GetValue<string>()) &&
+            message["embeds"] is not JsonArray { Count: > 0 })
+            throw new ArgumentException("Discord message needs content or an embed");
+        if (message["embeds"] is JsonArray embeds)
+        {
+            if (embeds.Count > 10) throw new ArgumentException("Discord supports at most 10 embeds");
+            var totalLength = 0;
+            foreach (var embedNode in embeds)
+            {
+                var embed = embedNode?.AsObject() ?? throw new ArgumentException("Invalid embed");
+                foreach (var (key, limit) in new[] { ("title", 256), ("description", 4096) })
+                {
+                    var length = embed[key]?.GetValue<string>().Length ?? 0;
+                    if (length > limit) throw new ArgumentException($"Embed {key} exceeds {limit} characters");
+                    totalLength += length;
+                }
+                foreach (var (key, limit) in new[] { ("footer", 2048), ("author", 256) })
+                {
+                    var property = key == "footer" ? "text" : "name";
+                    var length = embed[key]?[property]?.GetValue<string>().Length ?? 0;
+                    if (length > limit) throw new ArgumentException($"Embed {key} exceeds {limit} characters");
+                    totalLength += length;
+                }
+                if (embed["fields"] is not JsonArray fields) continue;
+                if (fields.Count > 25) throw new ArgumentException("Discord supports at most 25 fields per embed");
+                foreach (var fieldNode in fields)
+                {
+                    var field = fieldNode?.AsObject() ?? throw new ArgumentException("Invalid embed field");
+                    var nameLength = field["name"]?.GetValue<string>().Length ?? 0;
+                    var valueLength = field["value"]?.GetValue<string>().Length ?? 0;
+                    if (nameLength is < 1 or > 256 || valueLength is < 1 or > 1024)
+                        throw new ArgumentException("Discord embed field name/value length is invalid");
+                    totalLength += nameLength + valueLength;
+                }
+            }
+            if (totalLength > 6000) throw new ArgumentException("Discord embeds exceed 6000 characters total");
+        }
+        if (message["components"] is not JsonArray rows) return;
+        if (rows.Count > 5) throw new ArgumentException("Discord supports at most 5 action rows");
+        foreach (var rowNode in rows)
+        {
+            var row = rowNode?.AsObject() ?? throw new ArgumentException("Invalid action row");
+            if (row["type"]?.GetValue<int>() != 1 || row["components"] is not JsonArray buttons || buttons.Count > 5)
+                throw new ArgumentException("Invalid Discord action row");
+            foreach (var buttonNode in buttons)
+            {
+                var button = buttonNode?.AsObject() ?? throw new ArgumentException("Invalid button");
+                var url = button["url"]?.GetValue<string>();
+                if (button["type"]?.GetValue<int>() != 2 || button["style"]?.GetValue<int>() != 5 ||
+                    string.IsNullOrWhiteSpace(button["label"]?.GetValue<string>()) ||
+                    button["label"]!.GetValue<string>().Length > 80 ||
+                    !Uri.TryCreate(url, UriKind.Absolute, out var link) || link.Scheme != Uri.UriSchemeHttps)
+                    throw new ArgumentException("Webhook buttons must be HTTPS link buttons (style 5)");
+            }
+        }
+    }
+
     private DiscordEmbed BuildEmbed(PunishmentRecord record)
     {
         var warningEvent = record.EventType is "warn_issued" or "warn_removed";
@@ -590,23 +718,76 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         return embed;
     }
 
-    private Dictionary<string, string> Values(PunishmentRecord r) => new(StringComparer.OrdinalIgnoreCase)
+    private Dictionary<string, string> Values(PunishmentRecord r)
     {
-        ["player"] = r.Player, ["steamid"] = r.SteamId, ["steamid64"] = r.SteamId, ["admin"] = r.Administrator,
-        ["adminsteamid"] = r.AdministratorSteamId, ["reason"] = r.Reason, ["duration"] = FormatDuration(r.Duration),
-        ["issuedat"] = FormatDate(r.CreatedAt), ["expiresat"] = r.EndAt == 0 ? "Навсегда" : FormatDate(r.EndAt),
-        ["server"] = Api.ThisServer?.Name ?? "unknown", ["type"] = r.EventType, ["emoji"] = "📋",
-        ["warningid"] = r.WarningId.ToString(CultureInfo.InvariantCulture), ["source"] = r.Source,
-        ["message"] = r.Message, ["originalissuer"] = r.OriginalIssuer,
-        ["test"] = r.IsTest ? "true" : "false"
-    };
+        var server = Api.ThisServer;
+        var issuedAt = FormatDate(r.CreatedAt);
+        var expiresAt = r.EndAt == 0 ? "Never" : FormatDate(r.EndAt);
+        var removedAt = r.RemovedAt is { } removed ? FormatDate(removed) : "";
+        var playerUrl = ulong.TryParse(r.SteamId, out var playerId)
+            ? $"https://steamcommunity.com/profiles/{playerId}" : "";
+        var adminUrl = ulong.TryParse(r.AdministratorSteamId, out var adminId)
+            ? $"https://steamcommunity.com/profiles/{adminId}" : "";
+        var now = DateTimeOffset.UtcNow;
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["player"] = r.Player, ["target"] = r.Player,
+            ["playername"] = r.Player, ["player_name"] = r.Player,
+            ["steamid"] = r.SteamId, ["steamid64"] = r.SteamId, ["playersteamid"] = r.SteamId,
+            ["player_steamid"] = r.SteamId, ["playerurl"] = playerUrl, ["player_url"] = playerUrl,
+            ["admin"] = r.Administrator, ["issuer"] = r.Administrator,
+            ["adminname"] = r.Administrator, ["admin_name"] = r.Administrator,
+            ["adminsteamid"] = r.AdministratorSteamId, ["admin_steamid"] = r.AdministratorSteamId,
+            ["adminurl"] = adminUrl, ["admin_url"] = adminUrl,
+            ["reason"] = r.Reason, ["removereason"] = r.RemoveReason, ["remove_reason"] = r.RemoveReason,
+            ["duration"] = FormatDuration(r.Duration),
+            ["durationseconds"] = r.Duration.ToString(CultureInfo.InvariantCulture),
+            ["duration_seconds"] = r.Duration.ToString(CultureInfo.InvariantCulture),
+            ["durationminutes"] = (r.Duration / 60).ToString(CultureInfo.InvariantCulture),
+            ["duration_minutes"] = (r.Duration / 60).ToString(CultureInfo.InvariantCulture),
+            ["issuedat"] = issuedAt, ["issued_at"] = issuedAt, ["createdat"] = issuedAt,
+            ["issuediso"] = DateTimeOffset.FromUnixTimeSeconds(r.CreatedAt).ToString("O"),
+            ["issued_iso"] = DateTimeOffset.FromUnixTimeSeconds(r.CreatedAt).ToString("O"),
+            ["expiresat"] = expiresAt, ["expires_at"] = expiresAt,
+            ["expiresiso"] = r.EndAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(r.EndAt).ToString("O") : "",
+            ["expires_iso"] = r.EndAt > 0 ? DateTimeOffset.FromUnixTimeSeconds(r.EndAt).ToString("O") : "",
+            ["removedat"] = removedAt, ["removed_at"] = removedAt,
+            ["removediso"] = r.RemovedAt is { } removedTime ? DateTimeOffset.FromUnixTimeSeconds(removedTime).ToString("O") : "",
+            ["removed_iso"] = r.RemovedAt is { } removedTime2 ? DateTimeOffset.FromUnixTimeSeconds(removedTime2).ToString("O") : "",
+            ["createdunix"] = r.CreatedAt.ToString(CultureInfo.InvariantCulture),
+            ["created_unix"] = r.CreatedAt.ToString(CultureInfo.InvariantCulture),
+            ["expiresunix"] = r.EndAt.ToString(CultureInfo.InvariantCulture),
+            ["expires_unix"] = r.EndAt.ToString(CultureInfo.InvariantCulture),
+            ["removedunix"] = r.RemovedAt?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["removed_unix"] = r.RemovedAt?.ToString(CultureInfo.InvariantCulture) ?? "",
+            ["server"] = server?.Name ?? "unknown", ["servername"] = server?.Name ?? "unknown",
+            ["server_name"] = server?.Name ?? "unknown", ["serverid"] = server?.Id.ToString() ?? "",
+            ["server_id"] = server?.Id.ToString() ?? "", ["serverip"] = server?.Ip ?? "",
+            ["server_ip"] = server?.Ip ?? "",
+            ["online"] = Utilities.GetPlayers().Count(x => x is { IsValid: true }).ToString(CultureInfo.InvariantCulture),
+            ["now"] = now.ToOffset(GetTimeZone()).ToString(Config.EmbedSettings.DateFormat, CultureInfo.InvariantCulture),
+            ["nowunix"] = now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture),
+            ["nowiso"] = now.ToString("O"),
+            ["type"] = r.EventType, ["event"] = r.EventType, ["emoji"] = "📋",
+            ["warningid"] = r.WarningId.ToString(CultureInfo.InvariantCulture),
+            ["warning_id"] = r.WarningId.ToString(CultureInfo.InvariantCulture),
+            ["source"] = r.Source, ["message"] = r.Message,
+            ["originalissuer"] = r.OriginalIssuer, ["original_issuer"] = r.OriginalIssuer,
+            ["test"] = r.IsTest ? "true" : "false",
+            ["ismoderatorwarning"] = r.IsModeratorWarning ? "true" : "false"
+        };
+    }
 
     private DiscordField Field(string name, string value) => new() { Name = name, Value = Sanitize(value), Inline = false };
     private string Expand(string template, Dictionary<string, string> values)
     {
-        foreach (var value in values) template = template.Replace("{" + value.Key + "}", Sanitize(value.Value), StringComparison.OrdinalIgnoreCase);
-        return Sanitize(template);
+        return Placeholder.Replace(template, match => values.TryGetValue(match.Groups[1].Value, out var value)
+            ? SanitizeText(value) : match.Value);
     }
+    private static string SanitizeText(string? value) =>
+        new string((value ?? "").Replace("@everyone", "@ everyone", StringComparison.OrdinalIgnoreCase)
+            .Replace("@here", "@ here", StringComparison.OrdinalIgnoreCase)
+            .Where(c => !char.IsControl(c) || c is '\n' or '\r' or '\t').ToArray());
     private string Sanitize(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return "-";
@@ -673,7 +854,31 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         embed.Fields.Add(Field("Снятия", records.Count(x => x.EventType is "unban" or "uncomm").ToString()));
         embed.Fields.Add(Field("Варны выданы", records.Count(x => x.EventType == "warn_issued").ToString()));
         embed.Fields.Add(Field("Варны сняты", records.Count(x => x.EventType == "warn_removed").ToString()));
-        await SendWebhookWithRetry(Config.Webhooks.Reports, new { username = "IksAdmin Logs", embeds = new[] { embed } }, "report");
+        var fallback = new { username = "IksAdmin Logs", embeds = new[] { embed }, allowed_mentions = new { parse = Array.Empty<string>() } };
+        await SendWebhookWithRetry(Config.Webhooks.Reports,
+            BuildConfiguredMessage("report", ReportValues(period, records, author), () => fallback), "report");
+    }
+
+    private Dictionary<string, string> ReportValues(string period, List<PunishmentRecord> records, string author)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["period"] = period, ["author"] = author,
+            ["count"] = records.Count.ToString(CultureInfo.InvariantCulture),
+            ["bans"] = records.Count(x => x.EventType == "ban").ToString(CultureInfo.InvariantCulture),
+            ["kicks"] = records.Count(x => x.EventType == "kick").ToString(CultureInfo.InvariantCulture),
+            ["comms"] = records.Count(x => x.EventType is "mute" or "gag" or "silence").ToString(CultureInfo.InvariantCulture),
+            ["unbans"] = records.Count(x => x.EventType == "unban").ToString(CultureInfo.InvariantCulture),
+            ["uncomms"] = records.Count(x => x.EventType == "uncomm").ToString(CultureInfo.InvariantCulture),
+            ["warnings"] = records.Count(x => x.EventType == "warn_issued").ToString(CultureInfo.InvariantCulture),
+            ["removedwarnings"] = records.Count(x => x.EventType == "warn_removed").ToString(CultureInfo.InvariantCulture),
+            ["threshold"] = Config.Reports.AnomalyThresholdPerHour.ToString(CultureInfo.InvariantCulture),
+            ["servername"] = Api.ThisServer?.Name ?? "unknown", ["server"] = Api.ThisServer?.Name ?? "unknown",
+            ["serverid"] = Api.ThisServer?.Id.ToString() ?? "", ["serverip"] = Api.ThisServer?.Ip ?? "",
+            ["now"] = now.ToOffset(GetTimeZone()).ToString(Config.EmbedSettings.DateFormat, CultureInfo.InvariantCulture),
+            ["nowunix"] = now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture), ["nowiso"] = now.ToString("O")
+        };
     }
 
     private void OnReload(CCSPlayerController? caller, List<string> args, CommandInfo info)

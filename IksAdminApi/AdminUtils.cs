@@ -504,10 +504,6 @@ public static class AdminUtils
             LogDebug($"Admin is null | No Access ✖");
             return false;
         }
-        if (admin!.IsDisabledByWarns)
-        {
-            return false;
-        }
         LogDebug($"Checking permission: {admin.Name} | {key}" );
         LogDebug("AdminDisabled: " + admin!.IsDisabled);
         if (admin.IsDisabled) {

@@ -20,7 +20,7 @@ public class CoreConfig : PluginCFG<CoreConfig>, IPluginCFG
     public Dictionary<string, string> CommandReplacement {get; set;} = new () { // Изменяет команды
         //{"css_respawn", "css_arespawn"} // -> Меняет css_respawn на css_arespawn к примеру
     };
-    public int MaxWarns { get; set; } = 3; // Максимальное кол-во варнов для блокировки админки у игрока
+    public int MaxWarns { get; set; } = 3; // Устаревшая настройка; варны больше не блокируют права.
     public List<WarnReason> WarnReasons { get; set; } =
     [
         new() { Title = "WarnReason.Rules", Text = "WarnReason.Rules" },
