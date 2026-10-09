@@ -192,6 +192,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private readonly List<PunishmentRecord> _records = new();
     private readonly HashSet<string> _expiredSent = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, byte> _dispatchKeys = new(StringComparer.Ordinal);
+    private long _lastScheduledReportBucket;
     private static readonly Regex Placeholder = new(@"\{([a-z][a-z0-9_]*)\}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private string _dataPath = "";
     private string _dispatchStatePath = "";
@@ -222,6 +223,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         catch (Exception ex) { Logger.LogError(ex, "[{Module}] failed to load warning config", ModuleName); }
         LoadRecords();
         LoadDispatchState();
+        ResetScheduledReportBucket();
         Logger.LogInformation("[{Module}] loaded. Punishment webhook configured: {Configured}", ModuleName, !string.IsNullOrWhiteSpace(Config.Webhooks.Punishments));
 
         Api.RegisterPermission("discord_logs.report", Config.Permissions.Report);
@@ -424,9 +426,15 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         _ = SendAsync(record);
     }
 
-    private static string DispatchKey(PunishmentRecord record) =>
-        string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt,
-            record.RemovedAt, record.Reason, record.WarningId, record.PunishmentId, record.Source);
+    private static string DispatchKey(PunishmentRecord record)
+    {
+        if (record.WarningId > 0)
+            return string.Join("|", "warn", record.IsModeratorWarning, record.EventType, record.WarningId);
+        if (record.PunishmentId > 0)
+            return string.Join("|", "punishment", record.EventType, record.PunishmentKind, record.PunishmentId);
+        return string.Join("|", record.EventType, record.SteamId, record.CreatedAt, record.EndAt,
+            record.RemovedAt, record.Reason, record.Source);
+    }
 
     private static int EventTimestamp(PunishmentRecord record) => record.RemovedAt ?? record.CreatedAt;
 
@@ -435,8 +443,17 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         CheckExpired();
         if (!Config.Reports.Enabled || !Config.Reports.SendScheduledReports || Config.Reports.IntervalMinutes <= 0)
             return;
-        if (DateTime.UtcNow.Minute % Math.Max(1, Config.Reports.IntervalMinutes) == 0)
-            _ = SendScheduledReportAsync();
+        var bucket = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / ((long)Config.Reports.IntervalMinutes * 60);
+        if (bucket <= _lastScheduledReportBucket) return;
+        _lastScheduledReportBucket = bucket;
+        _ = SendScheduledReportAsync();
+    }
+
+    private void ResetScheduledReportBucket()
+    {
+        _lastScheduledReportBucket = Config.Reports.IntervalMinutes > 0
+            ? DateTimeOffset.UtcNow.ToUnixTimeSeconds() / ((long)Config.Reports.IntervalMinutes * 60)
+            : 0;
     }
 
     private void CheckExpired()
@@ -444,7 +461,11 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
         List<PunishmentRecord> expired;
         lock (_sync)
         {
-            expired = _records.Where(x => x.EndAt > 0 && x.EndAt <= AdminUtils.CurrentTimestamp() && x.RemovedAt == null)
+            var removed = _records.Where(x => x.EventType is "unban" or "uncomm" && x.PunishmentId > 0)
+                .Select(x => $"{x.PunishmentKind}:{x.PunishmentId}").ToHashSet(StringComparer.Ordinal);
+            expired = _records.Where(x => x.EventType is "ban" or "mute" or "gag" or "silence")
+                .Where(x => x.EndAt > 0 && x.EndAt <= AdminUtils.CurrentTimestamp() && x.RemovedAt == null)
+                .Where(x => !removed.Contains($"{x.PunishmentKind}:{x.PunishmentId}"))
                 .Where(x => _expiredSent.Add($"{x.EventType}:{x.SteamId}:{x.CreatedAt}:{x.EndAt}")).ToList();
             if (expired.Count > 0)
                 SaveDispatchState();
@@ -537,12 +558,12 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                     }
                     var body = await response.Content.ReadAsStringAsync();
                     Logger.LogWarning("[{Module}] Discord webhook for {EventType} returned HTTP {Status}: {Body}", ModuleName, eventType, (int)response.StatusCode, Sanitize(body));
-                    if (!IsRetryable(response.StatusCode))
+                    if (response.StatusCode != HttpStatusCode.TooManyRequests)
                     {
                         await SaveFailedPayload(payload, eventType, $"HTTP {(int)response.StatusCode}");
                         return;
                     }
-                    var delay = response.StatusCode == HttpStatusCode.TooManyRequests && response.Headers.RetryAfter?.Delta is { } retryAfter
+                    var delay = response.Headers.RetryAfter?.Delta is { } retryAfter
                         ? retryAfter
                         : TimeSpan.FromSeconds(Math.Pow(2, attempt + 1));
                     if (attempt < 3) await Task.Delay(delay);
@@ -550,9 +571,10 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
                 }
                 catch (Exception exception)
                 {
-                    Logger.LogWarning(exception, "[{Module}] Discord webhook for {EventType} attempt {Attempt} failed", ModuleName, eventType, attempt + 1);
+                    Logger.LogWarning(exception, "[{Module}] Discord webhook for {EventType} failed; delivery status is unknown", ModuleName, eventType);
+                    await SaveFailedPayload(payload, eventType, "delivery status unknown");
+                    return;
                 }
-                if (attempt < 3) await Task.Delay(TimeSpan.FromSeconds(Math.Pow(2, attempt + 1)));
             }
             await SaveFailedPayload(payload, eventType, "retries exhausted");
         }
@@ -571,9 +593,6 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             Logger.LogError(exception, "[{Module}] failed to persist Discord webhook failure", ModuleName);
         }
     }
-
-    private static bool IsRetryable(HttpStatusCode status) =>
-        status == HttpStatusCode.RequestTimeout || status == HttpStatusCode.TooManyRequests || (int)status >= 500;
 
     private object BuildMessage(PunishmentRecord record)
     {
@@ -983,6 +1002,7 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
             var warnings = ReadWarningConfig();
             Config = parsed;
             _warningConfig = warnings;
+            ResetScheduledReportBucket();
             caller?.Print("Конфиг Discord-логирования перечитан.");
         }
         catch (Exception e) { caller?.Print($"Ошибка конфига: {e.Message}"); }
@@ -1018,7 +1038,12 @@ public sealed class Main : AdminModule, IPluginConfig<DiscordLogsConfig>
     private static string Csv(string value) => $"\"{value.Replace("\"", "\"\"")}\"";
     private void LoadRecords()
     {
-        try { if (File.Exists(_dataPath)) _records.AddRange(JsonSerializer.Deserialize<List<PunishmentRecord>>(File.ReadAllText(_dataPath)) ?? []); }
+        try
+        {
+            if (!File.Exists(_dataPath)) return;
+            _records.AddRange(JsonSerializer.Deserialize<List<PunishmentRecord>>(File.ReadAllText(_dataPath)) ?? []);
+            foreach (var record in _records) _dispatchKeys.TryAdd(DispatchKey(record), 0);
+        }
         catch { }
     }
     private void LoadDispatchState()
