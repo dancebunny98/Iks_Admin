@@ -1,5 +1,7 @@
 # Discord-сообщения IksAdmin: настройка и шаблоны Discohook
 
+Визуальный редактор конфигов находится в [`tools/discord-config-editor/index.html`](../tools/discord-config-editor/index.html). Откройте файл в браузере; порядок импорта, редактирования и экспорта описан в [README редактора](../tools/discord-config-editor/README.md). В архиве Discord-модуля редактор лежит в `discord-config-editor/`.
+
 Модуль `IksAdmin_DiscordPunishments` отправляет события наказаний и варнов в Discord через webhook. Сообщение каждого типа можно полностью задать в JSON, созданном на [Discohook](https://discohook.app/): текст, несколько embeds, поля, цвета, изображения по URL, подпись, автор и ссылочные кнопки. Подстановка `{...}` работает в любом **строковом значении** JSON, в том числе в URL и надписях кнопок. Числа, `true`/`false` и имена ключей JSON не изменяются.
 
 ## 1. Webhook и файлы

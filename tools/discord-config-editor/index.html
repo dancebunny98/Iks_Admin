@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IksAdmin Discord Studio</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">I</span><div><strong>IksAdmin</strong><span>Discord Studio</span></div></div>
+      <div class="top-actions">
+        <span id="save-state" class="save-state" role="status">Готово</span>
+        <button id="import-configs" class="button subtle" type="button">Загрузить конфиги</button>
+        <button id="export-project" class="button subtle" type="button">Проект</button>
+        <button id="export-configs" class="button primary" type="button">Скачать конфиги</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar" aria-label="События">
+        <div class="sidebar-head"><h1>Сообщения</h1><span id="configured-count" class="count">0 / 14</span></div>
+        <nav id="event-list" class="event-list"></nav>
+        <div class="sidebar-bottom"><button id="open-settings" class="sidebar-link" type="button">Настройки webhook <span aria-hidden="true">›</span></button><a class="sidebar-link" href="../../docs/discord-messages.md" target="_blank" rel="noopener">Документация <span aria-hidden="true">↗</span></a></div>
+      </aside>
+
+      <section class="editor-pane" aria-label="Редактор">
+        <div class="pane-head"><div><div id="event-category" class="eyebrow">Варны игроков</div><h2 id="event-title">Варн выдан</h2><div id="route-label" class="route-label"></div></div><div class="pane-actions"><button id="clear-message" class="button subtle" type="button">Сбросить</button><button id="copy-message" class="button subtle" type="button">Копировать JSON</button></div></div>
+        <div class="tabs" role="tablist" aria-label="Режим редактирования"><button id="tab-visual" class="tab active" role="tab" aria-selected="true" type="button">Редактор</button><button id="tab-json" class="tab" role="tab" aria-selected="false" type="button">JSON</button><button id="tab-variables" class="tab" role="tab" aria-selected="false" type="button">Заполнители</button></div>
+
+        <div id="visual-view" class="editor-scroll">
+          <section class="form-section"><div class="section-title"><h3>Профиль webhook</h3></div><div class="two-col"><label>Имя отправителя<input id="message-username" data-path="username" maxlength="80" placeholder="IksAdmin Logs"></label><label>Аватар URL<input id="message-avatar" data-path="avatar_url" placeholder="https://..."></label></div></section>
+          <section class="form-section"><div class="section-title"><h3>Текст сообщения</h3><span class="limit" id="content-limit">0 / 2000</span></div><textarea id="message-content" data-path="content" rows="5" placeholder="Текст над embeds. Работают заполнители и Discord Markdown."></textarea></section>
+          <section class="form-section"><div class="section-title"><h3>Embeds</h3><button id="add-embed" class="button small" type="button">Добавить embed</button></div><div id="embeds-editor"></div></section>
+          <section class="form-section"><div class="section-title"><h3>Кнопки</h3><button id="add-button" class="button small" type="button">Добавить ссылку</button></div><div id="buttons-editor"></div></section>
+        </div>
+
+        <div id="json-view" class="editor-scroll hidden"><div class="json-toolbar"><span class="muted">Полный Discord JSON для выбранного события</span><button id="apply-json" class="button small" type="button">Применить JSON</button></div><textarea id="raw-json" class="code-input" spellcheck="false" aria-label="JSON сообщения"></textarea><div class="json-toolbar"><button id="paste-discohook" class="button subtle" type="button">Вставить из буфера</button><button id="import-message-file" class="button subtle" type="button">Загрузить JSON-файл</button></div></div>
+
+        <div id="variables-view" class="editor-scroll hidden"><div class="variable-head"><input id="variable-search" type="search" placeholder="Найти заполнитель"></div><div id="variable-list" class="variable-list"></div></div>
+      </section>
+
+      <section class="preview-pane" aria-label="Предпросмотр">
+        <div class="preview-head"><div><h2>Предпросмотр</h2><span id="preview-destination" class="muted">Канал не указан</span></div><button id="preview-data-button" class="button subtle" type="button">Тестовые данные</button></div>
+        <div id="validation" class="validation hidden" role="alert"></div>
+        <div class="discord-surface"><div class="discord-message"><div id="preview-avatar" class="discord-avatar">IK</div><div class="discord-body"><div class="discord-meta"><strong id="preview-username">IksAdmin Logs</strong><span class="bot-tag">БОТ</span><time>Сегодня в 12:00</time></div><div id="preview-content" class="discord-content"></div><div id="preview-embeds"></div><div id="preview-buttons"></div></div></div></div>
+        <div class="preview-foot"><span id="preview-size" class="muted">0 символов</span><button id="download-message" class="button subtle" type="button">Скачать сообщение</button></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="settings-dialog" class="modal"><div class="modal-head"><h2>Настройки отправки</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Каждый тип события отправляется в свой webhook. Адреса останутся только в загруженных или скачанных файлах.</p><div id="webhook-settings"></div><div class="settings-divider"></div><div id="warning-settings"></div></div><div class="modal-foot"><button class="button primary" data-close-dialog type="button">Готово</button></div></dialog>
+
+  <dialog id="import-dialog" class="modal"><div class="modal-head"><h2>Загрузить конфиги</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Загруженные файлы обрабатываются в браузере. Прочие параметры основного конфига сохранятся при экспорте.</p><label class="file-label">IksAdmin_DiscordPunishments.json<input id="main-file" type="file" accept=".json,application/json"></label><label class="file-label">warnings.json<input id="warnings-file" type="file" accept=".json,application/json"></label><label class="file-label">Проект редактора<input id="project-file" type="file" accept=".json,application/json"></label></div><div class="modal-foot"><button class="button subtle" data-close-dialog type="button">Закрыть</button></div></dialog>
+
+  <dialog id="export-dialog" class="modal"><div class="modal-head"><h2>Скачать конфиги</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><p class="modal-intro">Скачайте оба файла в каталог <code>addons/counterstrikesharp/configs/plugins/IksAdmin_DiscordPunishments/</code>. Webhook URL сохраняются в файлах, поэтому храните их приватно.</p><div class="stack"><button id="download-main-config" class="button primary" type="button">IksAdmin_DiscordPunishments.json</button><button id="download-warnings-config" class="button subtle" type="button">warnings.json</button></div></div><div class="modal-foot"><button class="button subtle" data-close-dialog type="button">Закрыть</button></div></dialog>
+
+  <dialog id="sample-dialog" class="modal"><div class="modal-head"><h2>Тестовые данные</h2><button class="icon-close" data-close-dialog type="button" aria-label="Закрыть">×</button></div><div class="modal-body"><div id="sample-fields" class="sample-grid"></div></div><div class="modal-foot"><button id="reset-samples" class="button subtle" type="button">Стандартные значения</button><button class="button primary" data-close-dialog type="button">Готово</button></div></dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <input id="message-file" type="file" accept=".json,application/json" hidden>
+</body>
+</html>

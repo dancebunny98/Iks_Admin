@@ -250,6 +250,9 @@ jobs:
           fi
           if [ "$MOD" = "IksAdmin_DiscordPunishments" ]; then
             cp "docs/discord-messages.md" "$OUT/DISCORD_MESSAGES.md"
+            mkdir -p "$OUT/discord-config-editor"
+            cp tools/discord-config-editor/{index.html,styles.css,app.js,README.md} "$OUT/discord-config-editor/"
+            sed -i 's#../../docs/discord-messages.md#../DISCORD_MESSAGES.md#' "$OUT/discord-config-editor/index.html"
           fi
 
           # IPluginConfig loads this file from configs/plugins/<module>/<module>.json.
